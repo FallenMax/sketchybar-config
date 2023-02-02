@@ -84,7 +84,6 @@ export async function sketchybar_initialize() {
           itemId,
           ...toParams({
             drawing: 'on',
-            width: MACOS_MENUBAR_HEIGHT,
             label: {
               '': '',
               color: labelColor,

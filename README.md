@@ -4,7 +4,7 @@ My SketchyBar setup mentioned at https://github.com/FelixKratz/SketchyBar/discus
 
 Features
 
-- Displays app titles and updates on change
+- Displays app titles and updates on change (with animation ✨)
   - Instead of using spaces for fixed purposes, I allocate any new task to a free space. So it's nice to know how spaces are used and their purpose from a glance
 - Co-exists with macOS native menubar
   - Native menubar is useful, also I'm using [MenubarX](https://menubarx.app/)
@@ -24,5 +24,5 @@ Usage:
 
 Known issues:
 
-- After upgrading macos to Ventura, bar items jitter when update, no idea how to fix it yet
+- ~~After upgrading macos to Ventura, bar items jitter when update, no idea how to fix it yet~~
 - Does not update when moving a window to another space using yabai, yabai seems not emit any event when this happens

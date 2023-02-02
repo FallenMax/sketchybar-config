@@ -67,10 +67,10 @@ export async function sketchybar_update(displays, spaces, windows, bar) {
   }
 
   {
+    // enable animation
+    push(['--animate', 'sin', '10'])
+
     // config bar
-
-    // push(['--animate', 'linear', '10'])
-
     push([
       '--bar',
       ...toParams({
@@ -95,6 +95,11 @@ export async function sketchybar_update(displays, spaces, windows, bar) {
       const spaceExist = space != null
       for (let itemIndex = 0; itemIndex < ITEMS_IN_SPACE; itemIndex++) {
         const itemId = `space.${spaceIndex}.${itemIndex}`
+        const window = windows[itemIndex]
+
+        // note: in order for updating to work correctly, when we update a item,
+        // we need to provide exactly the same set of params, so that we can
+        // override the previous one
 
         // window name / space label / hidden
         if (spaceEmpty && itemIndex === 0) {
@@ -103,7 +108,6 @@ export async function sketchybar_update(displays, spaces, windows, bar) {
             '--set',
             itemId,
             ...toParams({
-              width: spaceExist ? MACOS_MENUBAR_HEIGHT : 0,
               icon: {
                 '': '',
                 width: 0,
@@ -113,7 +117,8 @@ export async function sketchybar_update(displays, spaces, windows, bar) {
               label: {
                 '': space.index,
                 color: labelColor,
-                padding_right: 0,
+                padding_left: 10,
+                padding_right: 10,
               },
               background: {
                 height: 18,
@@ -121,57 +126,54 @@ export async function sketchybar_update(displays, spaces, windows, bar) {
               },
             }),
           ])
+        } else if (window) {
+          // window name
+          const matched = KNOWN_APPS.find((app) => app.app === window.app)
+          push([
+            '--set',
+            itemId,
+            ...toParams({
+              icon: {
+                '': matched.icon,
+                width: matched.icon ? 26 : 0,
+                color: matched.iconColor || '0xffffffff',
+                padding_left: 8,
+                padding_right: 4,
+              },
+              label: {
+                '': matched.getTitle?.(window) ?? window.title.substr(0, 10),
+                color: labelColor,
+                padding_left: 0,
+                padding_right: 4,
+              },
+              background: {
+                height: MACOS_MENUBAR_HEIGHT,
+                padding_right: 4, // gap between app titles
+              },
+            }),
+          ])
         } else {
-          const window = windows[itemIndex]
-          if (window) {
-            // window name
-            const matched = KNOWN_APPS.find((app) => app.app === window.app)
-            push([
-              '--set',
-              itemId,
-              ...toParams({
-                width: 'dynamic',
-                icon: {
-                  '': matched.icon,
-                  width: matched.icon ? 26 : 0,
-                  color: matched.iconColor || '0xffffffff',
-                  padding_left: 8,
-                  padding_right: 4,
-                },
-                label: {
-                  '': matched.getTitle?.(window) ?? window.title.substr(0, 10),
-                  color: labelColor,
-                  padding_right: 4,
-                },
-                background: {
-                  height: MACOS_MENUBAR_HEIGHT,
-                  padding_right: 4, // gap between app titles
-                },
-              }),
-            ])
-          } else {
-            // hidden
-            push([
-              '--set',
-              itemId,
-              ...toParams({
+          // hidden
+          push([
+            '--set',
+            itemId,
+            ...toParams({
+              icon: {
+                '': '',
                 width: 0,
-                icon: {
-                  '': '',
-                  width: 0,
-                  padding_left: 0,
-                  padding_right: 0,
-                },
-                label: {
-                  '': '',
-                  padding_right: 0,
-                },
-                background: {
-                  padding_right: 0,
-                },
-              }),
-            ])
-          }
+                padding_left: 0,
+                padding_right: 0,
+              },
+              label: {
+                '': '',
+                padding_left: 0,
+                padding_right: 0,
+              },
+              background: {
+                padding_right: 0,
+              },
+            }),
+          ])
         }
       }
 
