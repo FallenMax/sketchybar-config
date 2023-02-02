@@ -68,6 +68,7 @@ export async function sketchybar_update(displays, spaces, windows, bar) {
 
   {
     // config bar
+
     // push(['--animate', 'linear', '10'])
 
     push([

@@ -5,29 +5,23 @@ import { sketchybar_update } from './update_sketchybar_update.mjs'
 import { info } from './utils.mjs'
 
 /**!
- * this script query windows information on each spaces using yabai, and update
- * sketchybar display
+ * This script queries the window information of each space using yabai and
+ * updates the sketchybar display
  *
- * fixed structure:
- * - bracket1(space.0) to bracket5(space.4), each has 5 fixed items representing
- *   either window or spaceName, e.g.
- *   - item1(space.$s.0) to item5(space.$s.4)
- *   - item(space.$s.gap) (gap item after space, will not be included in
- *     bracket)
+ * Fixed structure in sketchybar terms:
  *
- * we build the structure on the first run, then update the items when there are
- * changes
+ * - **bracket** x 5 , representing 5 yabai spaces
+ * - each bracket contains 5 **items**, representing either window title or spaceName(if no window)
+ * - there's a special invisible **item** after each space, to provide gap between spaces
+ *
+ * The structure is built on the first run, then items are updated
+ *     when there are changes to reduce flicker
  *
  * @see
  * - zx: https://github.com/google/zx
  * - sketchybar: https://felixkratz.github.io/SketchyBar/config/bar
  * - yabai: https://github.com/koekeishiya/yabai
  */
-
-$.verbose = false // do not print command
-
-// -------------- constants -----------------
-
 const main = async () => {
   const start = Date.now()
 
@@ -56,6 +50,7 @@ const main = async () => {
   console.info(`updated sketchybar. total=${Date.now() - start} query=${afterQuery - beforeQuery}ms, update=${afterUpdate - beforeUpdate}ms`)
 }
 
+$.verbose = false // do not print command
 try {
   await main()
 } catch (error) {

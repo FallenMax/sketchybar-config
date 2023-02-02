@@ -4,6 +4,6 @@ PLUGIN_DIR="$HOME/.config/sketchybar/plugins"
 
 sketchybar --update
 
-/Users/YOUR_USER_NAME/.config/sketchybar/update_sketchybar.mjs
+/Users/YOUR_USERNAME/.config/sketchybar/update_sketchybar.mjs
 
 echo "sketchybar configuration loaded.."
