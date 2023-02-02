@@ -1,0 +1,46 @@
+#!/usr/bin/env sh
+
+# ... other stuff irrelevant to this example ...
+
+# https://github.com/koekeishiya/yabai/blob/master/doc/yabai.asciidoc#signal
+EVENTS_FOR_BAR=(
+  # application_launched
+  # application_terminated
+  # application_front_switched
+  # application_activated
+  # application_deactivated
+  application_visible
+  application_hidden
+  window_created
+  window_destroyed
+  # window_focused
+  # window_moved
+  # window_resized
+  window_minimized
+  window_deminimized
+  window_title_changed
+  space_changed
+  display_added
+  display_removed
+  # display_moved
+  # display_resized
+  # display_changed
+  # mission_control_enter
+  # mission_control_exit
+  # dock_did_restart
+  # menu_bar_hidden_changed
+  # dock_did_change_pref
+)
+
+# require flock: https://github.com/discoteq/flock
+
+for event in "${EVENTS_FOR_BAR[@]}"; do
+  echo "registering $event for update_schetchybar"
+
+  # we patch $PATH so zx/node can be located by yabai
+  yabai -m signal --add \
+    event="$event" \
+    label="update_sketchybar__${event}" \
+    action="echo 'event:' $event && export PATH=$PATH:/usr/local/bin:/opt/homebrew/bin/:/Users/YOUR_USER_NAME/Library/pnpm && flock -nE 0 /Users/YOUR_USER_NAME/.config/sketchybar/update_sketchybar.lock /Users/YOUR_USER_NAME/.config/sketchybar/update_sketchybar.mjs --quiet"
+done
+export PATH=$PATH:/usr/local/bin:/opt/homebrew/bin/:/Users/YOUR_USER_NAME/Library/pnpm && /Users/YOUR_USER_NAME/.config/sketchybar/update_sketchybar.mjs --quiet
