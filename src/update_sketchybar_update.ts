@@ -1,11 +1,13 @@
-import { info, toParams } from './utils.mjs'
+#!/usr/bin/env zx
 
-const MACOS_MENUBAR_HEIGHT = 24
-const SPACES = 5
-const ITEMS_IN_SPACE = 5
+import { $ } from 'zx'
+import { ITEMS_IN_SPACE, MACOS_MENUBAR_HEIGHT, SPACES } from './consts'
+import { Bar } from './sketchybar'
+import { fromDataId, info, toDataId, toParams } from './utils'
+import { Display, Space, Window } from './yabai'
 
 // icons: https://www.nerdfonts.com/cheat-sheet
-const KNOWN_APPS = [
+const KNOWN_APPS: KnownApp[] = [
   {
     app: 'Google Chrome',
     icon: '\udb80\udeaf',
@@ -50,23 +52,38 @@ const KNOWN_APPS = [
   },
 ]
 
-export async function sketchybar_update(displays, spaces, windows, bar) {
+type KnownApp = {
+  app: string
+  icon: string
+  iconColor?: string
+  getTitle?: (window: Window) => string
+}
+export async function update(displays: Display[], spaces: Space[], windows: Window[], bar: Bar) {
   const isMacbook = displays.length === 1
-  const windowsById = {}
+  const windowsById: Record<string, Window> = {}
   windows.forEach((w) => (windowsById[w.id] = w))
 
   // prepare params
-  let args = []
+  let args: string[] = []
   const flush = async () => {
     info(args)
     await $`sketchybar ${args}`
     args = []
   }
-  const push = (argList) => {
+  const push = (argList: string[]) => {
     args.push(...argList)
   }
 
   {
+    // load data
+    const dataId = bar.items.find((item) => item.startsWith('data.'))
+    const data = (dataId && fromDataId(dataId)) || fromDataId(toDataId([]))
+    info(`old data id`, dataId)
+    info(`old data`, data)
+    if (dataId) {
+      push(['--remove', dataId])
+    }
+
     // enable animation
     push(['--animate', 'sin', '10'])
 
@@ -92,18 +109,47 @@ export async function sketchybar_update(displays, spaces, windows, bar) {
             .filter((w) => KNOWN_APPS.find((app) => app.app === w.app))
 
       const spaceEmpty = windows.length === 0
-      const spaceExist = space != null
+
+      // here we'll update the same window by reusing the same slot,
+      // then add new windows to available slots, and remove the rest
+      const prevWindowIds = data[spaceIndex]
+
+      // first remove everything
+      const nextWindowIds = prevWindowIds.map((_) => 0)
+
+      // try re-add windows that exists in last render
+      windows.forEach((win) => {
+        const oldIndex = prevWindowIds.indexOf(win.id)
+        if (oldIndex !== -1) {
+          nextWindowIds[oldIndex] = win.id
+        }
+      })
+
+      // then add windows that are new
+      windows.forEach((win) => {
+        const oldIndex = prevWindowIds.indexOf(win.id)
+        if (oldIndex === -1) {
+          const emptyIndex = nextWindowIds.indexOf(0)
+          if (emptyIndex !== -1) {
+            nextWindowIds[emptyIndex] = win.id
+          }
+        }
+      })
+
+      // now that we have the nextWindowIds, we can update the data
       for (let itemIndex = 0; itemIndex < ITEMS_IN_SPACE; itemIndex++) {
         const itemId = `space.${spaceIndex}.${itemIndex}`
-        const window = windows[itemIndex]
+        const windowId = nextWindowIds[itemIndex]
+        const window = windowId ? windowsById[windowId] : undefined
 
-        // note: in order for updating to work correctly, when we update a item,
-        // we need to provide exactly the same set of params, so that we can
-        // override the previous one
+        // note: in order for updating to work correctly, when we update a item
+        // (whatever role it has), we need to provide exactly the same set of
+        // params, so that we can override the previous one
 
         // window name / space label / hidden
         if (spaceEmpty && itemIndex === 0) {
-          // space label
+          // space label, always takes the first slot
+          // TODO maybe we should use a different item for space label
           push([
             '--set',
             itemId,
@@ -128,7 +174,7 @@ export async function sketchybar_update(displays, spaces, windows, bar) {
           ])
         } else if (window) {
           // window name
-          const matched = KNOWN_APPS.find((app) => app.app === window.app)
+          const matched = KNOWN_APPS.find((app) => app.app === window.app)!
           push([
             '--set',
             itemId,
@@ -177,6 +223,8 @@ export async function sketchybar_update(displays, spaces, windows, bar) {
         }
       }
 
+      data[spaceIndex] = nextWindowIds
+
       // group background
       {
         const isActive = space?.['is-visible']
@@ -202,6 +250,20 @@ export async function sketchybar_update(displays, spaces, windows, bar) {
       //     }),
       //   ])
       // }
+    }
+
+    // store data
+    {
+      const nextDataId = toDataId(data)
+      info(`new data`, data)
+      push(['--add', 'item', nextDataId, 'center'])
+      push([
+        '--set',
+        nextDataId,
+        ...toParams({
+          drawing: 'off',
+        }),
+      ])
     }
   }
 

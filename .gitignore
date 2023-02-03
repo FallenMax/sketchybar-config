@@ -1,1 +1,3 @@
-sketchybar/update_sketchybar.lock
+*.lock
+*.mjs
+node_modules

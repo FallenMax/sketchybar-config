@@ -1,17 +1,15 @@
-import { info, toParams } from './utils.mjs'
+import { $ } from 'zx'
+import { ITEMS_IN_SPACE, MACOS_MENUBAR_HEIGHT, SPACES } from './consts'
+import { info, toDataId, toParams } from './utils'
 
-const MACOS_MENUBAR_HEIGHT = 24
-const SPACES = 5
-const ITEMS_IN_SPACE = 5
-
-export async function sketchybar_initialize() {
-  let args = []
+export async function initialize() {
+  let args: string[] = []
   const flush = async () => {
     info(args)
     await $`sketchybar ${args}`
     args = []
   }
-  const push = (argList) => {
+  const push = (argList: string[]) => {
     args.push(...argList)
   }
 
@@ -136,6 +134,19 @@ export async function sketchybar_initialize() {
           }),
         ])
       }
+    }
+
+    // database
+    {
+      const databaseId = toDataId([])
+      push(['--add', 'item', databaseId, 'center'])
+      push([
+        '--set',
+        databaseId,
+        ...toParams({
+          drawing: 'off',
+        }),
+      ])
     }
   }
 

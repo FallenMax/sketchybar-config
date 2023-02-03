@@ -8,17 +8,15 @@ Features
   - Instead of using spaces for fixed purposes, I allocate any new task to a free space. So it's nice to know how spaces are used and their purpose from a glance
 - Co-exists with macOS native menubar
   - Native menubar is useful, also I'm using [MenubarX](https://menubarx.app/)
-- Written in javascript
+- Written in TypeScript
   - Easier to maintain for complex logic (a.k.a. I can't write bash)
 
 Usage:
 
 - Install required dependencies:
-  - node.js (to run the script)
+  - node.js (run `npm install` or using yarn/pnpm)
   - yabai (query window info)
-  - [zx](https://github.com/google/zx) (provides some nice cli utilities)
   - [flock](https://github.com/discoteq/flock) (to prevent multiple instances of the script)
-  - (Optional) [chokidar-cli](https://www.npmjs.com/package/chokidar-cli) (to watch for changes in the script, making developing easier)
 - Modify code to your liking
   - Be sure to replace _"YOUR_USERNAME"_ to your own
 
