@@ -145,81 +145,93 @@ export async function update(displays: Display[], spaces: Space[], windows: Wind
         // note: in order for updating to work correctly, when we update a item
         // (whatever role it has), we need to provide exactly the same set of
         // params, so that we can override the previous one
+        interface ItemAttributes {
+          icon: {
+            '': string
+            color?: string
+            width: number
+            padding_left: number
+            padding_right: number
+          }
+          label: {
+            '': string
+            color?: string
+            padding_left: number
+            padding_right: number
+          }
+          background: {
+            height: number
+            padding_right: number
+          }
+        }
 
         // window name / space label / hidden
         if (spaceEmpty && itemIndex === 0) {
+          const attrs: ItemAttributes = {
+            icon: {
+              '': '',
+              width: 0,
+              padding_left: 0,
+              padding_right: 0,
+            },
+            label: {
+              '': String(space.index),
+              color: labelColor,
+              padding_left: 10,
+              padding_right: 6,
+            },
+            background: {
+              height: 18,
+              padding_right: 0,
+            },
+          }
           // space label, always takes the first slot
           // TODO maybe we should use a different item for space label
-          push([
-            '--set',
-            itemId,
-            ...toParams({
-              icon: {
-                '': '',
-                width: 0,
-                padding_left: 0,
-                padding_right: 0,
-              },
-              label: {
-                '': space.index,
-                color: labelColor,
-                padding_left: 10,
-                padding_right: 10,
-              },
-              background: {
-                height: 18,
-                padding_right: 0,
-              },
-            }),
-          ])
+          push(['--set', itemId, ...toParams(attrs)])
         } else if (window) {
           // window name
           const matched = KNOWN_APPS.find((app) => app.app === window.app)!
-          push([
-            '--set',
-            itemId,
-            ...toParams({
-              icon: {
-                '': matched.icon,
-                width: matched.icon ? 26 : 0,
-                color: matched.iconColor || '0xffffffff',
-                padding_left: 8,
-                padding_right: 4,
-              },
-              label: {
-                '': matched.getTitle?.(window) ?? window.title.substr(0, 10),
-                color: labelColor,
-                padding_left: 0,
-                padding_right: 4,
-              },
-              background: {
-                height: MACOS_MENUBAR_HEIGHT,
-                padding_right: 4, // gap between app titles
-              },
-            }),
-          ])
+          const label = matched.getTitle?.(window) ?? window.title.substr(0, 10)
+          const attrs: ItemAttributes = {
+            icon: {
+              '': matched.icon,
+              width: matched.icon ? 26 : 0,
+              color: matched.iconColor || '0xffffffff',
+              padding_left: 8,
+              padding_right: 4,
+            },
+            label: {
+              '': label,
+              color: labelColor,
+              padding_left: 0,
+              padding_right: label ? 4 : 0,
+            },
+            background: {
+              height: MACOS_MENUBAR_HEIGHT,
+              padding_right: 4,
+            },
+          }
+          push(['--set', itemId, ...toParams(attrs)])
         } else {
           // hidden
-          push([
-            '--set',
-            itemId,
-            ...toParams({
-              icon: {
-                '': '',
-                width: 0,
-                padding_left: 0,
-                padding_right: 0,
-              },
-              label: {
-                '': '',
-                padding_left: 0,
-                padding_right: 0,
-              },
-              background: {
-                padding_right: 0,
-              },
-            }),
-          ])
+          const attrs: ItemAttributes = {
+            icon: {
+              '': '',
+              width: 0,
+              padding_left: 0,
+              padding_right: 0,
+            },
+            label: {
+              '': '',
+              padding_left: 0,
+              padding_right: 0,
+            },
+            background: {
+              height: MACOS_MENUBAR_HEIGHT,
+              padding_right: 0,
+            },
+          }
+          push(['--set', itemId, ...toParams(attrs)])
         }
       }
 
