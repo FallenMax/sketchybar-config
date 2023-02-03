@@ -25,4 +25,4 @@ Usage:
 Known issues:
 
 - ~~After upgrading macos to Ventura, bar items jitter when update, no idea how to fix it yet~~
-- Does not update when moving a window to another space using yabai, yabai seems not emit any event when this happens
+- Does not update when moving a window to another space using yabai, yabai seems not emit any event when this happens: [#1272](https://github.com/koekeishiya/yabai/issues/1272)
