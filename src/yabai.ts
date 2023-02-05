@@ -11,4 +11,8 @@ export type Window = {
   id: number
   app: string
   title: string
+  ['is-floating']: boolean
+  ['is-sticky']: boolean
+  ['is-topmost']: boolean
+  ['has-fullscreen-zoom']: boolean
 }

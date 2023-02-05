@@ -1,7 +1,7 @@
 #!/usr/bin/env zx
 
 import { $ } from 'zx'
-import { ITEMS_IN_SPACE, MACOS_MENUBAR_HEIGHT, SPACES } from './consts'
+import { ITEMS_IN_SPACE, SPACES } from './consts'
 import { Bar } from './sketchybar'
 import { fromDataId, info, toDataId, toParams } from './utils'
 import { Display, Space, Window } from './yabai'
@@ -76,12 +76,15 @@ export async function update(displays: Display[], spaces: Space[], windows: Wind
 
   {
     // load data
-    const dataId = bar.items.find((item) => item.startsWith('data.'))
+    const dataIds = bar.items.filter((item) => item.startsWith('data.'))
+    const [dataId] = dataIds
     const data = (dataId && fromDataId(dataId)) || fromDataId(toDataId([]))
     info(`old data id`, dataId)
     info(`old data`, data)
-    if (dataId) {
-      push(['--remove', dataId])
+    if (dataIds.length) {
+      dataIds.forEach((d) => {
+        push(['--remove', d])
+      })
     }
 
     // enable animation
@@ -109,6 +112,7 @@ export async function update(displays: Display[], spaces: Space[], windows: Wind
             .filter((w) => KNOWN_APPS.find((app) => app.app === w.app))
 
       const spaceEmpty = windows.length === 0
+      const spaceActive = space?.['is-visible']
 
       // here we'll update the same window by reusing the same slot,
       // then add new windows to available slots, and remove the rest
@@ -160,10 +164,12 @@ export async function update(displays: Display[], spaces: Space[], windows: Wind
             padding_right: number
           }
           background: {
-            height: number
+            color: string
+            padding_left: number
             padding_right: number
           }
         }
+        const rightPaddingFix = -4
 
         // window name / space label / hidden
         if (spaceEmpty && itemIndex === 0) {
@@ -178,10 +184,11 @@ export async function update(displays: Display[], spaces: Space[], windows: Wind
               '': String(space.index),
               color: labelColor,
               padding_left: 10,
-              padding_right: 6,
+              padding_right: 10 + rightPaddingFix,
             },
             background: {
-              height: 18,
+              color: '0x00ffffff',
+              padding_left: 0,
               padding_right: 0,
             },
           }
@@ -192,6 +199,8 @@ export async function update(displays: Display[], spaces: Space[], windows: Wind
           // window name
           const matched = KNOWN_APPS.find((app) => app.app === window.app)!
           const label = matched.getTitle?.(window) ?? window.title.substr(0, 10)
+          const windowFullScreen = window['has-fullscreen-zoom']
+
           const attrs: ItemAttributes = {
             icon: {
               '': matched.icon,
@@ -202,13 +211,14 @@ export async function update(displays: Display[], spaces: Space[], windows: Wind
             },
             label: {
               '': label,
-              color: labelColor,
-              padding_left: 0,
-              padding_right: label ? 4 : 0,
+              color: spaceActive && windowFullScreen ? '0xc0000000' : spaceActive ? '0xffffffff' : labelColor,
+              padding_left: 4,
+              padding_right: 8,
             },
             background: {
-              height: MACOS_MENUBAR_HEIGHT,
-              padding_right: 4,
+              color: spaceActive && windowFullScreen ? '0xffffffff' : '0x00ffffff',
+              padding_left: 2,
+              padding_right: 2 + rightPaddingFix,
             },
           }
           push(['--set', itemId, ...toParams(attrs)])
@@ -227,7 +237,8 @@ export async function update(displays: Display[], spaces: Space[], windows: Wind
               padding_right: 0,
             },
             background: {
-              height: MACOS_MENUBAR_HEIGHT,
+              color: '0x00ffffff',
+              padding_left: 0,
               padding_right: 0,
             },
           }
@@ -239,29 +250,41 @@ export async function update(displays: Display[], spaces: Space[], windows: Wind
 
       // group background
       {
-        const isActive = space?.['is-visible']
         push([
           '--set',
           spaceId,
           ...toParams({
             background: {
-              color: isActive ? '0x30ffffff' : '0x18ffffff',
+              // color: hasFullscreenWindow ? (spaceActive ? '0xffffffff' : '0xb0ffffff') : spaceActive ? '0x30ffffff' : '0x00ffffff',
+              color: spaceActive ? '0x30ffffff' : '0x00ffffff',
+              padding_left: 0,
+              padding_right: 0,
             },
           }),
         ])
       }
 
       // gap between spaces
-      // {
-      //   const spaceGapId = `space.${spaceIndex}.gap`
-      //   push([
-      //     '--set',
-      //     spaceGapId,
-      //     ...toParams({
-      //       width: spaceExist ? 4 : 0,
-      //     }),
-      //   ])
-      // }
+      {
+        const spaceGapId = `space.${spaceIndex}.gap`
+        push([
+          '--set',
+          spaceGapId,
+          ...toParams({
+            label: {
+              '': '|',
+              padding_left: 4,
+              padding_right: 4,
+              color: '0x30ffffff',
+            },
+            background: {
+              // height: MACOS_MENUBAR_HEIGHT,
+              padding_left: 4,
+              padding_right: 4,
+            },
+          }),
+        ])
+      }
     }
 
     // store data

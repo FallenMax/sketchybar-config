@@ -59,11 +59,11 @@ export async function initialize() {
         },
         background: {
           drawing: 'on',
+          corner_radius: 2,
           padding_left: 0,
           padding_right: 0,
           color: '0x00ffffff',
-          corner_radius: 4,
-          height: 20,
+          height: MACOS_MENUBAR_HEIGHT - 2 * 2,
         },
       }),
     ])
@@ -73,6 +73,7 @@ export async function initialize() {
     for (let spaceIndex = 0; spaceIndex < SPACES; spaceIndex++) {
       const spaceId = `space.${spaceIndex}`
       const items = []
+      // windows in space
       for (let itemIndex = 0; itemIndex < ITEMS_IN_SPACE; itemIndex++) {
         const itemId = `space.${spaceIndex}.${itemIndex}`
         items.push(itemId)
@@ -90,6 +91,7 @@ export async function initialize() {
               height: 18,
               color: '0x00ffffff',
             },
+            // click_script: `"yabai -m space --focus ${spaceIndex + 1}"`,
           }),
         ])
       }
@@ -103,8 +105,7 @@ export async function initialize() {
           ...toParams({
             background: {
               color: '0x18ffffff',
-              // color: '0xff00ff00',
-              corner_radius: 9999,
+              corner_radius: 4,
               height: MACOS_MENUBAR_HEIGHT,
             },
           }),
