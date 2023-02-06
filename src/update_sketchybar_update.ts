@@ -169,7 +169,7 @@ export async function update(displays: Display[], spaces: Space[], windows: Wind
             padding_right: number
           }
         }
-        const rightPaddingFix = -4
+        const rightPaddingFix = -3
 
         // window name / space label / hidden
         if (spaceEmpty && itemIndex === 0) {
@@ -217,8 +217,8 @@ export async function update(displays: Display[], spaces: Space[], windows: Wind
             },
             background: {
               color: spaceActive && windowFullScreen ? '0xffffffff' : '0x00ffffff',
-              padding_left: 2,
-              padding_right: 2 + rightPaddingFix,
+              padding_left: 4,
+              padding_right: 4 + rightPaddingFix,
             },
           }
           push(['--set', itemId, ...toParams(attrs)])
