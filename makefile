@@ -2,7 +2,7 @@
 build:
 	# use esbuild to build src/*.ts -> update_sketchybar.mjs
 	@echo "build"
-	esbuild --bundle --target=esnext --format=esm --outfile=update_sketchybar.mjs  --platform=node src/update_sketchybar.ts
+	esbuild --bundle --target=esnext --format=esm --outfile=update_sketchybar.mjs  --platform=node --external:zx src/update_sketchybar.ts 
 
 config:
 	@echo "apply config"
