@@ -1,9 +1,7 @@
-# https://github.com/FelixKratz/dotfiles
-
-PLUGIN_DIR="$HOME/.config/sketchybar/plugins"
+#!/usr/bin/env sh
 
 sketchybar --update
 
-/Users/YOUR_USERNAME/.config/sketchybar/update_sketchybar.mjs
+$HOME/.config/sketchybar/update_sketchybar
 
 echo "sketchybar configuration loaded.."
