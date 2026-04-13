@@ -160,10 +160,6 @@ func resolveBundleNames() map[int]string {
 
 //-------------- Yabai / Sketchybar types --------------
 
-type Display struct {
-	ID int `json:"id"`
-}
-
 type Space struct {
 	ID        int   `json:"id"`
 	Index     int   `json:"index"`
@@ -297,7 +293,7 @@ func initialize() error {
 		"color=0x00000000",
 		"position=top",
 		"height="+itoa(menubarHeight),
-		"margin=0", "y_offset=0", "corner_radius=0",
+		"margin=0", "y_offset="+itoa(-menubarHeight), "corner_radius=0",
 		"border_width=0", "blur_radius=0",
 		"padding_left=0", "padding_right=0",
 		"display=main", "topmost=on", "sticky=on", "font_smoothing=on",
@@ -348,15 +344,15 @@ func initialize() error {
 		push(append([]string{"--add", "bracket", spaceID}, bracketItems...)...)
 		push("--set", spaceID,
 			"background.color=0x00ffffff",
-			"background.corner_radius=4",
-			"background.height="+itoa(menubarHeight),
+			"background.corner_radius=9999",
+			"background.height=20",
 		)
 
 		gapID := fmt.Sprintf("space.%d.gap", si)
 		push("--add", "item", gapID, "center")
 		push("--set", gapID,
 			"label=",
-			"label.padding_left=2", "label.padding_right=2",
+			"label.padding_left=3", "label.padding_right=3",
 			"background.drawing=on", "background.color=0x00ffffff",
 			"background.padding_left=0", "background.padding_right=0",
 		)
@@ -395,7 +391,7 @@ func update(cfg *Config, spaces []Space, windows []Window, bar Bar, bundleNames 
 	}
 
 	push("--animate", "sin", "10")
-	push("--bar", "color=0x00000000", "position=top")
+	push("--bar", "color=0x00000000", "position=top", "y_offset="+itoa(-menubarHeight))
 
 	for si := range numSpaces {
 		spaceID := fmt.Sprintf("space.%d", si)
@@ -499,12 +495,12 @@ func update(cfg *Config, spaces []Space, windows []Window, bar Bar, bundleNames 
 
 		data[si] = next
 
-		//-------------- Bracket background --------------
+		//-------------- Bracket background (pill) --------------
 		bracketBg := "0x00ffffff"
 		if spaceActive {
-			bracketBg = "0x20ffffff"
+			bracketBg = "0x28ffffff"
 		} else if !spaceEmpty {
-			bracketBg = "0x10ffffff"
+			bracketBg = "0x15ffffff"
 		}
 		push("--set", spaceID,
 			"background.color="+bracketBg,
@@ -515,7 +511,7 @@ func update(cfg *Config, spaces []Space, windows []Window, bar Bar, bundleNames 
 		gapID := fmt.Sprintf("space.%d.gap", si)
 		push("--set", gapID,
 			"label=",
-			"label.padding_left=2", "label.padding_right=2",
+			"label.padding_left=3", "label.padding_right=3",
 		)
 	}
 
@@ -598,31 +594,26 @@ func main() {
 	start := time.Now()
 
 	var (
-		displays    []Display
 		spaces      []Space
 		windows     []Window
 		bar         Bar
 		bundleNames map[int]string
-		errs        [5]error
+		errs        [4]error
 		wg          sync.WaitGroup
 	)
 
-	wg.Add(5)
+	wg.Add(4)
 	go func() {
 		defer wg.Done()
-		errs[0] = queryJSON("yabai", []string{"-m", "query", "--displays"}, &displays)
+		errs[0] = queryJSON("yabai", []string{"-m", "query", "--spaces"}, &spaces)
 	}()
 	go func() {
 		defer wg.Done()
-		errs[1] = queryJSON("yabai", []string{"-m", "query", "--spaces"}, &spaces)
+		errs[1] = queryJSON("yabai", []string{"-m", "query", "--windows"}, &windows)
 	}()
 	go func() {
 		defer wg.Done()
-		errs[2] = queryJSON("yabai", []string{"-m", "query", "--windows"}, &windows)
-	}()
-	go func() {
-		defer wg.Done()
-		errs[3] = queryJSON("sketchybar", []string{"--query", "bar"}, &bar)
+		errs[2] = queryJSON("sketchybar", []string{"--query", "bar"}, &bar)
 	}()
 	go func() {
 		defer wg.Done()
@@ -630,9 +621,7 @@ func main() {
 	}()
 	wg.Wait()
 
-	_ = displays
-
-	for _, err := range errs[:4] {
+	for _, err := range errs[:3] {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "query error: %v\n", err)
 			os.Exit(1)

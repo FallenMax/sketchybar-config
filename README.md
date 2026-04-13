@@ -30,7 +30,7 @@ make install
 This will:
 1. Build the binary
 2. Install to `~/.config/sketchybar/`
-3. Copy `config.example.json` → `config.json` (first install only)
+3. Copy `config.default.json` → `config.json` (first install only)
 4. Register yabai signals so the bar updates on window changes
 5. Restart sketchybar
 

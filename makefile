@@ -9,8 +9,8 @@ install: build
 	cp sketchybarrc $(INSTALL_DIR)/
 	chmod +x $(INSTALL_DIR)/sketchybarrc
 	@if [ ! -f $(INSTALL_DIR)/config.json ]; then \
-		cp config.example.json $(INSTALL_DIR)/config.json; \
-		echo "created $(INSTALL_DIR)/config.json from example"; \
+		cp config.default.json $(INSTALL_DIR)/config.json; \
+		echo "created $(INSTALL_DIR)/config.json from defaults"; \
 	else \
 		echo "$(INSTALL_DIR)/config.json already exists, skipping"; \
 	fi
