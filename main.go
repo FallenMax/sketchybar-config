@@ -13,65 +13,149 @@ import (
 )
 
 const (
-	macosMenubarHeight = 24
-	numSpaces          = 5
-	itemsInSpace       = 5
+	menubarHeight   = 25
+	numSpaces       = 5
+	windowsPerSpace = 4
 )
 
-//-------------- Nerd Font icons (https://www.nerdfonts.com/cheat-sheet) --------------
+//-------------- Config (loaded from ~/.config/sketchybar/config.json) --------------
 
-const (
-	iconChrome    = "\U000F02AF"
-	iconCode      = "\U000F0A1E"
-	iconFinder    = "\U000F0036"
-	iconWeChat    = "\U000F0611"
-	iconAlacritty = "\uF489"
-	iconSpotify   = "\U000F04C7"
-)
-
-//-------------- Known apps --------------
-
-type knownApp struct {
-	name      string
-	icon      string
-	iconColor string
-	getTitle  func(w Window) string
+type Config struct {
+	MaxTitleLength int         `json:"maxTitleLength"`
+	Apps           []AppConfig `json:"apps"`
 }
 
-var knownApps = []knownApp{
-	{
-		name: "Google Chrome", icon: iconChrome, iconColor: "0xfff1bf47",
-		getTitle: func(w Window) string {
-			return truncate(strings.TrimSuffix(w.Title, " - Google Chrome"), 10)
-		},
-	},
-	{
-		name: "Code", icon: iconCode, iconColor: "0xff4b9ae9",
-		getTitle: func(w Window) string {
-			parts := strings.SplitN(w.Title, " — ", 2)
-			project := parts[0]
-			if len(parts) > 1 {
-				project = parts[1]
-			}
-			return truncate(project, 10)
-		},
-	},
-	{name: "访达", icon: iconFinder, iconColor: "0xff1abffb"},
-	{
-		name: "微信", icon: iconWeChat, iconColor: "0xff10d962",
-		getTitle: func(Window) string { return "" },
-	},
-	{name: "Alacritty", icon: iconAlacritty, iconColor: "0xffcc822e"},
-	{name: "Spotify", icon: iconSpotify, iconColor: "0xff65d56e"},
+type AppConfig struct {
+	ID             string `json:"id"`
+	Icon           string `json:"icon"`
+	Color          string `json:"color"`
+	StripSuffix    string `json:"stripSuffix,omitempty"`
+	TitleSeparator string `json:"titleSeparator,omitempty"`
+	TitlePart      int    `json:"titlePart,omitempty"`
+	HideTitle      bool   `json:"hideTitle,omitempty"`
 }
 
-func findKnownApp(appName string) *knownApp {
-	for i := range knownApps {
-		if knownApps[i].name == appName {
-			return &knownApps[i]
+func (a *AppConfig) getTitle(w Window, maxLen int) string {
+	if a.HideTitle {
+		return ""
+	}
+	title := w.Title
+	if a.StripSuffix != "" {
+		title = strings.TrimSuffix(title, a.StripSuffix)
+	}
+	if a.TitleSeparator != "" {
+		parts := strings.Split(title, a.TitleSeparator)
+		idx := a.TitlePart
+		if idx < 0 {
+			idx = len(parts) + idx
+		}
+		if idx >= 0 && idx < len(parts) {
+			title = parts[idx]
 		}
 	}
-	return nil
+	return truncateEllipsis(strings.TrimSpace(title), maxLen)
+}
+
+func loadConfig() Config {
+	home, _ := os.UserHomeDir()
+	data, err := os.ReadFile(home + "/.config/sketchybar/config.json")
+	if err != nil {
+		return defaultConfig()
+	}
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: invalid config.json: %v\n", err)
+		return defaultConfig()
+	}
+	if cfg.MaxTitleLength <= 0 {
+		cfg.MaxTitleLength = 12
+	}
+	for i := range cfg.Apps {
+		cfg.Apps[i].Icon = parseIcon(cfg.Apps[i].Icon)
+	}
+	return cfg
+}
+
+func defaultConfig() Config {
+	return Config{
+		MaxTitleLength: 12,
+		Apps: []AppConfig{
+			{ID: "Google Chrome", Icon: "\U000F02AF", Color: "0xfff1bf47", StripSuffix: " - Google Chrome"},
+			{ID: "Safari", Icon: "\U000F0584", Color: "0xff2c98f0"},
+			{ID: "Firefox", Icon: "\U000F0239", Color: "0xffff7139"},
+			{ID: "Visual Studio Code", Icon: "\U000F0A1E", Color: "0xff4b9ae9", TitleSeparator: " \u2014 ", TitlePart: -1},
+			{ID: "Cursor", Icon: "\U000F0A1E", Color: "0xff4b9ae9", TitleSeparator: " \u2014 ", TitlePart: -1},
+			{ID: "Ghostty", Icon: "\uF489", Color: "0xffcccccc"},
+			{ID: "Alacritty", Icon: "\uF489", Color: "0xffcc822e"},
+			{ID: "Terminal", Icon: "\uF489", Color: "0xffffffff"},
+			{ID: "Warp", Icon: "\uF489", Color: "0xff00d4aa"},
+			{ID: "Finder", Icon: "\U000F0036", Color: "0xff1abffb"},
+			{ID: "WeChat", Icon: "\U000F0611", Color: "0xff10d962", HideTitle: true},
+			{ID: "Slack", Icon: "\U000F04B1", Color: "0xff611f69"},
+			{ID: "zoom.us", Icon: "\U000F0568", Color: "0xff2d8cff"},
+			{ID: "Spotify", Icon: "\U000F04C7", Color: "0xff65d56e"},
+		},
+	}
+}
+
+// parseIcon converts "U+F02AF" hex notation to the actual unicode rune.
+// Raw unicode characters are passed through as-is.
+func parseIcon(s string) string {
+	if strings.HasPrefix(s, "U+") || strings.HasPrefix(s, "u+") {
+		if code, err := strconv.ParseInt(s[2:], 16, 32); err == nil {
+			return string(rune(code))
+		}
+	}
+	return s
+}
+
+// findApp matches a window against the config by .app bundle name,
+// with fallback to yabai's display name.
+func findApp(cfg *Config, yabaiAppName string, bundleName string) *AppConfig {
+	var wildcard *AppConfig
+	for i := range cfg.Apps {
+		id := cfg.Apps[i].ID
+		if id == "*" {
+			wildcard = &cfg.Apps[i]
+			continue
+		}
+		if id == bundleName || id == yabaiAppName {
+			return &cfg.Apps[i]
+		}
+	}
+	return wildcard
+}
+
+//-------------- Bundle name resolution (pid → .app name) --------------
+
+func resolveBundleNames() map[int]string {
+	out, err := exec.Command("ps", "-e", "-o", "pid=,comm=").Output()
+	if err != nil {
+		return nil
+	}
+	result := make(map[int]string)
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		spaceIdx := strings.IndexByte(line, ' ')
+		if spaceIdx < 0 {
+			continue
+		}
+		pid, err := strconv.Atoi(strings.TrimSpace(line[:spaceIdx]))
+		if err != nil {
+			continue
+		}
+		path := strings.TrimSpace(line[spaceIdx:])
+		for _, seg := range strings.Split(path, "/") {
+			if strings.HasSuffix(seg, ".app") {
+				result[pid] = strings.TrimSuffix(seg, ".app")
+				break
+			}
+		}
+	}
+	return result
 }
 
 //-------------- Yabai / Sketchybar types --------------
@@ -88,10 +172,10 @@ type Space struct {
 }
 
 type Window struct {
-	ID                int    `json:"id"`
-	App               string `json:"app"`
-	Title             string `json:"title"`
-	HasFullscreenZoom bool   `json:"has-fullscreen-zoom"`
+	ID    int    `json:"id"`
+	PID   int    `json:"pid"`
+	App   string `json:"app"`
+	Title string `json:"title"`
 }
 
 type Bar struct {
@@ -100,15 +184,15 @@ type Bar struct {
 
 //-------------- Data persistence via sketchybar item name --------------
 //
-// Hack: store window-to-slot mapping in a hidden bar item's name,
-// so animations work correctly across updates.
-// Format: "data.{w0}:{w1}:.../{w0}:{w1}:.../..." (/ separates spaces, : separates slots)
+// Stores window-to-slot mapping in a hidden bar item's name so that
+// animations are stable across updates.
+// Format: "data.{w0}:{w1}:.../{w0}:{w1}:.../..."
 
 func toDataID(data [][]int) string {
 	spaces := make([]string, numSpaces)
 	for si := range numSpaces {
-		items := make([]string, itemsInSpace)
-		for wi := range itemsInSpace {
+		items := make([]string, windowsPerSpace)
+		for wi := range windowsPerSpace {
 			v := 0
 			if si < len(data) && wi < len(data[si]) {
 				v = data[si][wi]
@@ -145,10 +229,10 @@ func emptyData() [][]int {
 
 func itoa(v int) string { return strconv.Itoa(v) }
 
-func truncate(s string, maxLen int) string {
+func truncateEllipsis(s string, maxLen int) string {
 	r := []rune(s)
-	if len(r) > maxLen {
-		return string(r[:maxLen])
+	if len(r) > maxLen && maxLen > 1 {
+		return string(r[:maxLen-1]) + "…"
 	}
 	return s
 }
@@ -160,6 +244,15 @@ func indexOf(slice []int, val int) int {
 		}
 	}
 	return -1
+}
+
+func hasItem(items []string, name string) bool {
+	for _, item := range items {
+		if item == name {
+			return true
+		}
+	}
+	return false
 }
 
 func runSketchybar(args []string) error {
@@ -176,8 +269,6 @@ func queryJSON(name string, args []string, out any) error {
 	return json.Unmarshal(data, out)
 }
 
-//-------------- File lock (replaces external flock dependency) --------------
-
 func tryLock(path string) *os.File {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
@@ -191,16 +282,23 @@ func tryLock(path string) *os.File {
 }
 
 //-------------- Initialize bar structure --------------
+//
+// Creates the fixed bar item structure. Items per space:
+//   space.{i}.num  — space number (always visible, doubles as shortcut hint)
+//   space.{i}.0…3  — window slots
+//   space.{i}      — bracket grouping the above
+//   space.{i}.gap  — spacing between spaces
 
 func initialize() error {
 	var args []string
 	push := func(a ...string) { args = append(args, a...) }
 
 	push("--bar",
-		"color=0xff131b20", "position=bottom",
-		"height="+itoa(macosMenubarHeight),
-		"margin=0", "y_offset=0", "corner_radius=5",
-		"border_width=0", "blur_radius=50",
+		"color=0x00000000",
+		"position=top",
+		"height="+itoa(menubarHeight),
+		"margin=0", "y_offset=0", "corner_radius=0",
+		"border_width=0", "blur_radius=0",
 		"padding_left=0", "padding_right=0",
 		"display=main", "topmost=on", "sticky=on", "font_smoothing=on",
 	)
@@ -208,45 +306,57 @@ func initialize() error {
 	push("--default",
 		"updates=when_shown", "drawing=on",
 		"icon=", "icon.drawing=on",
-		"icon.font=Hack Nerd Font:Bold:16.0",
+		"icon.font=Hack Nerd Font:Bold:14.0",
 		"icon.color=0xffffffff",
 		"icon.padding_left=0", "icon.padding_right=0",
 		"label=", "label.drawing=on",
-		"label.font=Helvetica:Normal:14.0",
-		"label.color=0xccffffff",
+		"label.font=Helvetica:Normal:13.0",
+		"label.color=0xb0ffffff",
 		"label.padding_left=0", "label.padding_right=0",
-		"background.drawing=on", "background.corner_radius=2",
+		"background.drawing=on", "background.corner_radius=3",
 		"background.padding_left=0", "background.padding_right=0",
 		"background.color=0x00ffffff",
-		"background.height="+itoa(macosMenubarHeight-4),
+		"background.height="+itoa(menubarHeight),
 	)
 
 	for si := range numSpaces {
-		spaceID := fmt.Sprintf("space.%d", si)
-		items := make([]string, itemsInSpace)
+		numID := fmt.Sprintf("space.%d.num", si)
+		push("--add", "item", numID, "center")
+		push("--set", numID,
+			"drawing=on",
+			"icon=", "icon.width=0",
+			"label="+itoa(si+1),
+			"label.font=Helvetica:Bold:12.0",
+			"label.color=0x50ffffff",
+			"label.padding_left=6", "label.padding_right=2",
+		)
 
-		for wi := range itemsInSpace {
+		bracketItems := []string{numID}
+		for wi := range windowsPerSpace {
 			id := fmt.Sprintf("space.%d.%d", si, wi)
-			items[wi] = id
+			bracketItems = append(bracketItems, id)
 			push("--add", "item", id, "center")
 			push("--set", id,
 				"drawing=on",
-				"label=", "label.color=0xccffffff",
-				"background.height=18", "background.color=0x00ffffff",
+				"label=", "label.color=0xb0ffffff",
+				"background.height="+itoa(menubarHeight),
+				"background.color=0x00ffffff",
 			)
 		}
 
-		push(append([]string{"--add", "bracket", spaceID}, items...)...)
+		spaceID := fmt.Sprintf("space.%d", si)
+		push(append([]string{"--add", "bracket", spaceID}, bracketItems...)...)
 		push("--set", spaceID,
-			"background.color=0x18ffffff",
+			"background.color=0x00ffffff",
 			"background.corner_radius=4",
-			"background.height="+itoa(macosMenubarHeight),
+			"background.height="+itoa(menubarHeight),
 		)
 
 		gapID := fmt.Sprintf("space.%d.gap", si)
 		push("--add", "item", gapID, "center")
 		push("--set", gapID,
-			"label=", "label.padding_left=4", "label.padding_right=4",
+			"label=",
+			"label.padding_left=2", "label.padding_right=2",
 			"background.drawing=on", "background.color=0x00ffffff",
 			"background.padding_left=0", "background.padding_right=0",
 		)
@@ -261,9 +371,7 @@ func initialize() error {
 
 //-------------- Update bar content --------------
 
-func update(displays []Display, spaces []Space, windows []Window, bar Bar) error {
-	isMacbook := len(displays) == 1
-
+func update(cfg *Config, spaces []Space, windows []Window, bar Bar, bundleNames map[int]string) error {
 	windowsByID := make(map[int]Window, len(windows))
 	for _, w := range windows {
 		windowsByID[w.ID] = w
@@ -272,7 +380,6 @@ func update(displays []Display, spaces []Space, windows []Window, bar Bar) error
 	var args []string
 	push := func(a ...string) { args = append(args, a...) }
 
-	// Load previous window-to-slot mapping
 	var dataIDs []string
 	for _, item := range bar.Items {
 		if strings.HasPrefix(item, "data.") {
@@ -288,24 +395,18 @@ func update(displays []Display, spaces []Space, windows []Window, bar Bar) error
 	}
 
 	push("--animate", "sin", "10")
-
-	if isMacbook {
-		push("--bar", "color=0xff131b20", "position=bottom")
-	} else {
-		push("--bar", "color=0x00272823", "position=top")
-	}
-
-	const labelColor = "0xccffffff"
+	push("--bar", "color=0x00000000", "position=top")
 
 	for si := range numSpaces {
 		spaceID := fmt.Sprintf("space.%d", si)
+		numID := fmt.Sprintf("space.%d.num", si)
 
 		var space *Space
 		var spaceWindows []Window
 		if si < len(spaces) {
 			space = &spaces[si]
 			for _, wID := range space.Windows {
-				if w, ok := windowsByID[wID]; ok && findKnownApp(w.App) != nil {
+				if w, ok := windowsByID[wID]; ok && findApp(cfg, w.App, bundleNames[w.PID]) != nil {
 					spaceWindows = append(spaceWindows, w)
 				}
 			}
@@ -314,12 +415,31 @@ func update(displays []Display, spaces []Space, windows []Window, bar Bar) error
 		spaceEmpty := len(spaceWindows) == 0
 		spaceActive := space != nil && space.IsVisible
 
-		// Stable slot assignment: keep existing windows in their slots,
-		// assign new windows to empty slots
+		//-------------- Space number --------------
+		numColor := "0x40ffffff"
+		if spaceActive {
+			numColor = "0xffffffff"
+		} else if !spaceEmpty {
+			numColor = "0x80ffffff"
+		}
+		spaceLabel := ""
+		if space != nil {
+			spaceLabel = itoa(space.Index)
+		}
+		push("--set", numID,
+			"label="+spaceLabel,
+			"label.color="+numColor,
+			"label.padding_left=6", "label.padding_right=2",
+		)
+
+		//-------------- Stable slot assignment --------------
 		prev := data[si]
-		next := make([]int, len(prev))
+		for len(prev) < windowsPerSpace {
+			prev = append(prev, 0)
+		}
+		next := make([]int, windowsPerSpace)
 		for _, win := range spaceWindows {
-			if idx := indexOf(prev, win.ID); idx != -1 {
+			if idx := indexOf(prev, win.ID); idx != -1 && idx < windowsPerSpace {
 				next[idx] = win.ID
 			}
 		}
@@ -331,67 +451,42 @@ func update(displays []Display, spaces []Space, windows []Window, bar Bar) error
 			}
 		}
 
-		const rightPaddingFix = -3
-
-		for wi := range itemsInSpace {
+		//-------------- Window slots --------------
+		for wi := range windowsPerSpace {
 			itemID := fmt.Sprintf("space.%d.%d", si, wi)
 			wID := next[wi]
 			win, hasWin := windowsByID[wID]
 
-			switch {
-			case spaceEmpty && wi == 0 && space != nil:
-				push("--set", itemID,
-					"icon=", "icon.width=0",
-					"icon.padding_left=0", "icon.padding_right=0",
-					"label="+itoa(space.Index),
-					"label.color="+labelColor,
-					"label.padding_left=10",
-					"label.padding_right="+itoa(10+rightPaddingFix),
-					"background.color=0x00ffffff",
-					"background.padding_left=0", "background.padding_right=0",
-				)
-
-			case hasWin && wID != 0:
-				app := findKnownApp(win.App)
-				label := truncate(win.Title, 10)
-				if app.getTitle != nil {
-					label = app.getTitle(win)
-				}
-				fs := win.HasFullscreenZoom
+			if hasWin && wID != 0 {
+				app := findApp(cfg, win.App, bundleNames[win.PID])
+				label := app.getTitle(win, cfg.MaxTitleLength)
 
 				iconWidth := 0
-				if app.icon != "" {
-					iconWidth = 26
+				if app.Icon != "" {
+					iconWidth = 22
 				}
 				iconColor := "0xffffffff"
-				if app.iconColor != "" {
-					iconColor = app.iconColor
+				if app.Color != "" {
+					iconColor = app.Color
 				}
-				lblColor := labelColor
-				if spaceActive && fs {
-					lblColor = "0xc0000000"
-				} else if spaceActive {
+				lblColor := "0xb0ffffff"
+				if spaceActive {
 					lblColor = "0xffffffff"
-				}
-				bgColor := "0x00ffffff"
-				if spaceActive && fs {
-					bgColor = "0xffffffff"
 				}
 
 				push("--set", itemID,
-					"icon="+app.icon,
+					"icon="+app.Icon,
 					"icon.width="+itoa(iconWidth),
 					"icon.color="+iconColor,
-					"icon.padding_left=8", "icon.padding_right=4",
+					"icon.padding_left=4", "icon.padding_right=2",
 					"label="+label,
 					"label.color="+lblColor,
-					"label.padding_left=4", "label.padding_right=8",
-					"background.color="+bgColor,
-					"background.padding_left=4",
-					"background.padding_right="+itoa(4+rightPaddingFix),
+					"label.padding_left=1", "label.padding_right=4",
+					"background.color=0x00ffffff",
+					"background.corner_radius=3",
+					"background.padding_left=0", "background.padding_right=0",
 				)
-
-			default:
+			} else {
 				push("--set", itemID,
 					"icon=", "icon.width=0",
 					"icon.padding_left=0", "icon.padding_right=0",
@@ -404,21 +499,23 @@ func update(displays []Display, spaces []Space, windows []Window, bar Bar) error
 
 		data[si] = next
 
+		//-------------- Bracket background --------------
 		bracketBg := "0x00ffffff"
 		if spaceActive {
-			bracketBg = "0x30ffffff"
+			bracketBg = "0x20ffffff"
+		} else if !spaceEmpty {
+			bracketBg = "0x10ffffff"
 		}
 		push("--set", spaceID,
 			"background.color="+bracketBg,
 			"background.padding_left=0", "background.padding_right=0",
 		)
 
+		//-------------- Gap between spaces --------------
 		gapID := fmt.Sprintf("space.%d.gap", si)
 		push("--set", gapID,
-			"label=|",
-			"label.padding_left=4", "label.padding_right=4",
-			"label.color=0x30ffffff",
-			"background.padding_left=4", "background.padding_right=4",
+			"label=",
+			"label.padding_left=2", "label.padding_right=2",
 		)
 	}
 
@@ -453,16 +550,11 @@ func installDir() string {
 
 func setup() {
 	binary := installDir() + "/update_sketchybar"
-
-	// Remove stale signals first
 	teardown()
-
 	for _, event := range yabaiEvents {
 		label := signalLabelPrefix + event
 		cmd := exec.Command("yabai", "-m", "signal", "--add",
-			"event="+event,
-			"label="+label,
-			"action="+binary,
+			"event="+event, "label="+label, "action="+binary,
 		)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -476,8 +568,7 @@ func setup() {
 
 func teardown() {
 	for _, event := range yabaiEvents {
-		label := signalLabelPrefix + event
-		exec.Command("yabai", "-m", "signal", "--remove", label).Run()
+		exec.Command("yabai", "-m", "signal", "--remove", signalLabelPrefix+event).Run()
 	}
 	fmt.Println("removed yabai signals")
 }
@@ -503,18 +594,20 @@ func main() {
 	}
 	defer lockFile.Close()
 
+	cfg := loadConfig()
 	start := time.Now()
 
 	var (
-		displays []Display
-		spaces   []Space
-		windows  []Window
-		bar      Bar
-		errs     [4]error
-		wg       sync.WaitGroup
+		displays    []Display
+		spaces      []Space
+		windows     []Window
+		bar         Bar
+		bundleNames map[int]string
+		errs        [5]error
+		wg          sync.WaitGroup
 	)
 
-	wg.Add(4)
+	wg.Add(5)
 	go func() {
 		defer wg.Done()
 		errs[0] = queryJSON("yabai", []string{"-m", "query", "--displays"}, &displays)
@@ -531,9 +624,15 @@ func main() {
 		defer wg.Done()
 		errs[3] = queryJSON("sketchybar", []string{"--query", "bar"}, &bar)
 	}()
+	go func() {
+		defer wg.Done()
+		bundleNames = resolveBundleNames()
+	}()
 	wg.Wait()
 
-	for _, err := range errs {
+	_ = displays
+
+	for _, err := range errs[:4] {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "query error: %v\n", err)
 			os.Exit(1)
@@ -542,14 +641,20 @@ func main() {
 
 	queryDone := time.Now()
 
-	if len(bar.Items) == 0 {
+	needsInit := len(bar.Items) == 0
+	if !needsInit && !hasItem(bar.Items, "space.0.num") {
+		fmt.Fprintln(os.Stderr, "bar structure outdated, restart sketchybar: brew services restart sketchybar")
+		os.Exit(0)
+	}
+
+	if needsInit {
 		if err := initialize(); err != nil {
 			fmt.Fprintf(os.Stderr, "initialize error: %v\n", err)
 			os.Exit(1)
 		}
 	}
 
-	if err := update(displays, spaces, windows, bar); err != nil {
+	if err := update(&cfg, spaces, windows, bar, bundleNames); err != nil {
 		fmt.Fprintf(os.Stderr, "update error: %v\n", err)
 		os.Exit(1)
 	}
