@@ -11,6 +11,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"unicode"
 )
 
 const (
@@ -19,42 +20,30 @@ const (
 	windowsPerSpace = 4
 )
 
+const (
+	pillActive   = "0x50ffffff"
+	pillInactive = "0x28ffffff"
+)
+
+var spaceBadgeColors = [numSpaces]string{
+	"0xcc6aadff", // blue
+	"0xcca78bfa", // violet
+	"0xcc5cc9b0", // teal
+	"0xccf0b429", // amber
+	"0xccf472b6", // rose
+}
+
 //-------------- Config (loaded from ~/.config/sketchybar/config.json) --------------
 
 type Config struct {
-	MaxTitleLength int         `json:"maxTitleLength"`
-	Apps           []AppConfig `json:"apps"`
+	MaxTitleWords int         `json:"maxTitleWords"`
+	Apps          []AppConfig `json:"apps"`
 }
 
 type AppConfig struct {
-	ID             string `json:"id"`
-	Icon           string `json:"icon"`
-	Color          string `json:"color"`
-	StripSuffix    string `json:"stripSuffix,omitempty"`
-	TitleSeparator string `json:"titleSeparator,omitempty"`
-	TitlePart      int    `json:"titlePart,omitempty"`
-	HideTitle      bool   `json:"hideTitle,omitempty"`
-}
-
-func (a *AppConfig) getTitle(w Window, maxLen int) string {
-	if a.HideTitle {
-		return ""
-	}
-	title := w.Title
-	if a.StripSuffix != "" {
-		title = strings.TrimSuffix(title, a.StripSuffix)
-	}
-	if a.TitleSeparator != "" {
-		parts := strings.Split(title, a.TitleSeparator)
-		idx := a.TitlePart
-		if idx < 0 {
-			idx = len(parts) + idx
-		}
-		if idx >= 0 && idx < len(parts) {
-			title = parts[idx]
-		}
-	}
-	return truncateEllipsis(strings.TrimSpace(title), maxLen)
+	ID        string `json:"id"`
+	Icon      string `json:"icon"`
+	HideTitle bool   `json:"hideTitle,omitempty"`
 }
 
 func loadConfig() Config {
@@ -68,8 +57,8 @@ func loadConfig() Config {
 		fmt.Fprintf(os.Stderr, "warning: invalid config.json: %v\n", err)
 		return defaultConfig()
 	}
-	if cfg.MaxTitleLength <= 0 {
-		cfg.MaxTitleLength = 12
+	if cfg.MaxTitleWords <= 0 {
+		cfg.MaxTitleWords = 3
 	}
 	for i := range cfg.Apps {
 		cfg.Apps[i].Icon = parseIcon(cfg.Apps[i].Icon)
@@ -79,22 +68,22 @@ func loadConfig() Config {
 
 func defaultConfig() Config {
 	return Config{
-		MaxTitleLength: 12,
+		MaxTitleWords: 3,
 		Apps: []AppConfig{
-			{ID: "Google Chrome", Icon: "\U000F02AF", Color: "0xfff1bf47", StripSuffix: " - Google Chrome"},
-			{ID: "Safari", Icon: "\U000F0584", Color: "0xff2c98f0"},
-			{ID: "Firefox", Icon: "\U000F0239", Color: "0xffff7139"},
-			{ID: "Visual Studio Code", Icon: "\U000F0A1E", Color: "0xff4b9ae9", TitleSeparator: " \u2014 ", TitlePart: -1},
-			{ID: "Cursor", Icon: "\U000F0A1E", Color: "0xff4b9ae9", TitleSeparator: " \u2014 ", TitlePart: -1},
-			{ID: "Ghostty", Icon: "\uF489", Color: "0xffcccccc"},
-			{ID: "Alacritty", Icon: "\uF489", Color: "0xffcc822e"},
-			{ID: "Terminal", Icon: "\uF489", Color: "0xffffffff"},
-			{ID: "Warp", Icon: "\uF489", Color: "0xff00d4aa"},
-			{ID: "Finder", Icon: "\U000F0036", Color: "0xff1abffb"},
-			{ID: "WeChat", Icon: "\U000F0611", Color: "0xff10d962", HideTitle: true},
-			{ID: "Slack", Icon: "\U000F04B1", Color: "0xff611f69"},
-			{ID: "zoom.us", Icon: "\U000F0568", Color: "0xff2d8cff"},
-			{ID: "Spotify", Icon: "\U000F04C7", Color: "0xff65d56e"},
+			{ID: "Google Chrome", Icon: "\U000F02AF"},
+			{ID: "Safari", Icon: "\U000F0584"},
+			{ID: "Firefox", Icon: "\U000F0239"},
+			{ID: "Visual Studio Code", Icon: "\U000F0A1E"},
+			{ID: "Cursor", Icon: "\U000F0A1E"},
+			{ID: "Ghostty", Icon: "\uF489"},
+			{ID: "Alacritty", Icon: "\uF489"},
+			{ID: "Terminal", Icon: "\uF489"},
+			{ID: "Warp", Icon: "\uF489"},
+			{ID: "Finder", Icon: "\U000F0036"},
+			{ID: "WeChat", Icon: "\U000F0611", HideTitle: true},
+			{ID: "Slack", Icon: "\U000F04B1"},
+			{ID: "zoom.us", Icon: "\U000F0568"},
+			{ID: "Spotify", Icon: "\U000F04C7"},
 		},
 	}
 }
@@ -226,12 +215,26 @@ func emptyData() [][]int {
 
 func itoa(v int) string { return strconv.Itoa(v) }
 
-func truncateEllipsis(s string, maxLen int) string {
-	r := []rune(s)
-	if len(r) > maxLen && maxLen > 1 {
-		return string(r[:maxLen-1]) + "…"
+/** cleanTitle extracts a readable short title from a window title.
+Strips app name suffixes, removes symbols, keeps first N whole words. */
+func cleanTitle(raw string, maxWords int) string {
+	for _, sep := range []string{" — ", " - ", " | "} {
+		if i := strings.Index(raw, sep); i > 0 {
+			raw = raw[:i]
+			break
+		}
 	}
-	return s
+	var buf []rune
+	for _, r := range raw {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == ' ' || r == '.' || r == '-' || r == '_' {
+			buf = append(buf, r)
+		}
+	}
+	words := strings.Fields(string(buf))
+	if len(words) > maxWords {
+		words = words[:maxWords]
+	}
+	return strings.Join(words, " ")
 }
 
 func indexOf(slice []int, val int) int {
@@ -319,18 +322,34 @@ func initialize() error {
 	)
 
 	for si := range numSpaces {
+		padID := fmt.Sprintf("space.%d.lpad", si)
+		push("--add", "item", padID, "center")
+		push("--set", padID,
+			"drawing=on",
+			"icon.drawing=off",
+			"label= ",
+			"label.font=Helvetica:Normal:1.0",
+			"label.color=0x00ffffff",
+			"label.padding_left=2", "label.padding_right=2",
+			"background.drawing=off",
+		)
+
 		numID := fmt.Sprintf("space.%d.num", si)
 		push("--add", "item", numID, "center")
 		push("--set", numID,
 			"drawing=on",
-			"icon=", "icon.width=0",
+			"icon=", "icon.drawing=off",
 			"label="+itoa(si+1),
-			"label.font=Helvetica:Bold:12.0",
+			"label.font=Helvetica:Bold:11.0",
 			"label.color=0xffffffff",
-			"label.padding_left=6", "label.padding_right=2",
+			"label.padding_left=6", "label.padding_right=6",
+			"background.drawing=on",
+			"background.color="+spaceBadgeColors[si],
+			"background.corner_radius=4",
+			"background.height=18",
 		)
 
-		bracketItems := []string{numID}
+		bracketItems := []string{padID, numID}
 		for wi := range windowsPerSpace {
 			id := fmt.Sprintf("space.%d.%d", si, wi)
 			bracketItems = append(bracketItems, id)
@@ -347,7 +366,7 @@ func initialize() error {
 		push(append([]string{"--add", "bracket", spaceID}, bracketItems...)...)
 		push("--set", spaceID,
 			"background.color=0x00ffffff",
-			"background.corner_radius=9999",
+			"background.corner_radius=8",
 			"background.height=26",
 		)
 
@@ -413,17 +432,29 @@ func update(cfg *Config, spaces []Space, windows []Window, bar Bar, bundleNames 
 
 		spaceEmpty := len(spaceWindows) == 0
 		spaceActive := space != nil && space.IsVisible
+		spaceVisible := spaceActive || !spaceEmpty
 
-		//-------------- Space number --------------
-		numColor := "0xffffffff"
-		spaceLabel := ""
-		if space != nil {
-			spaceLabel = itoa(space.Index)
+		//-------------- Space left pad + number badge --------------
+		padID := fmt.Sprintf("space.%d.lpad", si)
+		padPx := "0"
+		numLabel := ""
+		badgeColor := "0x00ffffff"
+		if spaceVisible {
+			padPx = "2"
+			if space != nil {
+				numLabel = itoa(space.Index)
+			}
+			badgeColor = spaceBadgeColors[si]
+			if !spaceActive {
+				badgeColor = strings.Replace(badgeColor, "0xcc", "0x70", 1)
+			}
 		}
+		push("--set", padID,
+			"label.padding_left="+padPx, "label.padding_right="+padPx,
+		)
 		push("--set", numID,
-			"label="+spaceLabel,
-			"label.color="+numColor,
-			"label.padding_left=6", "label.padding_right=2",
+			"label="+numLabel,
+			"background.color="+badgeColor,
 		)
 
 		//-------------- Stable slot assignment --------------
@@ -453,25 +484,23 @@ func update(cfg *Config, spaces []Space, windows []Window, bar Bar, bundleNames 
 
 			if hasWin && wID != 0 {
 				app := findApp(cfg, win.App, bundleNames[win.PID])
-				label := app.getTitle(win, cfg.MaxTitleLength)
+				label := ""
+				if !app.HideTitle {
+					label = cleanTitle(win.Title, cfg.MaxTitleWords)
+				}
 
 				iconWidth := 0
 				if app.Icon != "" {
 					iconWidth = 22
 				}
-				iconColor := "0xffffffff"
-				if app.Color != "" {
-					iconColor = app.Color
-				}
-				lblColor := "0xffffffff"
 
 				push("--set", itemID,
 					"icon="+app.Icon,
 					"icon.width="+itoa(iconWidth),
-					"icon.color="+iconColor,
+					"icon.color=0xb0ffffff",
 					"icon.padding_left=4", "icon.padding_right=2",
 					"label="+label,
-					"label.color="+lblColor,
+					"label.color=0xffffffff",
 					"label.padding_left=1", "label.padding_right=4",
 					"background.color=0x00ffffff",
 					"background.corner_radius=3",
@@ -493,20 +522,23 @@ func update(cfg *Config, spaces []Space, windows []Window, bar Bar, bundleNames 
 		//-------------- Bracket background (pill) --------------
 		bracketBg := "0x00ffffff"
 		if spaceActive {
-			bracketBg = "0x28ffffff"
+			bracketBg = pillActive
 		} else if !spaceEmpty {
-			bracketBg = "0x15ffffff"
+			bracketBg = pillInactive
 		}
 		push("--set", spaceID,
 			"background.color="+bracketBg,
-			"background.padding_left=0", "background.padding_right=0",
 		)
 
 		//-------------- Gap between spaces --------------
 		gapID := fmt.Sprintf("space.%d.gap", si)
+		gapPad := "3"
+		if !spaceVisible {
+			gapPad = "0"
+		}
 		push("--set", gapID,
 			"label=",
-			"label.padding_left=3", "label.padding_right=3",
+			"label.padding_left="+gapPad, "label.padding_right="+gapPad,
 		)
 	}
 
@@ -633,7 +665,7 @@ func main() {
 	queryDone := time.Now()
 
 	needsInit := len(bar.Items) == 0
-	if !needsInit && !hasItem(bar.Items, "space.0.num") {
+	if !needsInit && !hasItem(bar.Items, "space.0.lpad") {
 		fmt.Fprintln(os.Stderr, "bar structure outdated, restart sketchybar: brew services restart sketchybar")
 		os.Exit(0)
 	}

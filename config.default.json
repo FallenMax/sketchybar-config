@@ -1,81 +1,19 @@
 {
-  "maxTitleLength": 12,
+  "maxTitleWords": 3,
   "apps": [
-    {
-      "id": "Google Chrome",
-      "icon": "U+F02AF",
-      "color": "0xfff1bf47",
-      "stripSuffix": " - Google Chrome"
-    },
-    {
-      "id": "Safari",
-      "icon": "U+F0584",
-      "color": "0xff2c98f0"
-    },
-    {
-      "id": "Firefox",
-      "icon": "U+F0239",
-      "color": "0xffff7139"
-    },
-    {
-      "id": "Visual Studio Code",
-      "icon": "U+F0A1E",
-      "color": "0xff4b9ae9",
-      "titleSeparator": " — ",
-      "titlePart": -1
-    },
-    {
-      "id": "Cursor",
-      "icon": "U+F0A1E",
-      "color": "0xff4b9ae9",
-      "titleSeparator": " — ",
-      "titlePart": -1
-    },
-    {
-      "id": "Ghostty",
-      "icon": "U+F489",
-      "color": "0xffcccccc"
-    },
-    {
-      "id": "Alacritty",
-      "icon": "U+F489",
-      "color": "0xffcc822e"
-    },
-    {
-      "id": "Terminal",
-      "icon": "U+F489",
-      "color": "0xffffffff"
-    },
-    {
-      "id": "Warp",
-      "icon": "U+F489",
-      "color": "0xff00d4aa"
-    },
-    {
-      "id": "Finder",
-      "icon": "U+F0036",
-      "color": "0xff1abffb"
-    },
-    {
-      "id": "WeChat",
-      "icon": "U+F0611",
-      "color": "0xff10d962",
-      "hideTitle": true
-    },
-    {
-      "id": "Slack",
-      "icon": "U+F04B1",
-      "color": "0xff611f69"
-    },
-    {
-      "id": "zoom.us",
-      "icon": "U+F0568",
-      "color": "0xff2d8cff"
-    },
-    {
-      "id": "Spotify",
-      "icon": "U+F04C7",
-      "color": "0xff65d56e"
-    }
+    { "id": "Google Chrome", "icon": "U+F02AF" },
+    { "id": "Safari", "icon": "U+F0584" },
+    { "id": "Firefox", "icon": "U+F0239" },
+    { "id": "Visual Studio Code", "icon": "U+F0A1E" },
+    { "id": "Cursor", "icon": "U+F0A1E" },
+    { "id": "Ghostty", "icon": "U+F489" },
+    { "id": "Alacritty", "icon": "U+F489" },
+    { "id": "Terminal", "icon": "U+F489" },
+    { "id": "Warp", "icon": "U+F489" },
+    { "id": "Finder", "icon": "U+F0036" },
+    { "id": "WeChat", "icon": "U+F0611", "hideTitle": true },
+    { "id": "Slack", "icon": "U+F04B1" },
+    { "id": "zoom.us", "icon": "U+F0568" },
+    { "id": "Spotify", "icon": "U+F04C7" }
   ]
 }
