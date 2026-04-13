@@ -5,6 +5,7 @@ build:
 
 install: build
 	mkdir -p $(INSTALL_DIR)
+	rm -f $(INSTALL_DIR)/update_sketchybar
 	cp update_sketchybar $(INSTALL_DIR)/
 	cp sketchybarrc $(INSTALL_DIR)/
 	chmod +x $(INSTALL_DIR)/sketchybarrc
@@ -14,6 +15,7 @@ install: build
 	else \
 		echo "$(INSTALL_DIR)/config.json already exists, skipping"; \
 	fi
+	-$(INSTALL_DIR)/update_sketchybar teardown
 	$(INSTALL_DIR)/update_sketchybar setup
 	brew services restart sketchybar
 	@sleep 2
@@ -25,7 +27,7 @@ install: build
 uninstall:
 	$(INSTALL_DIR)/update_sketchybar teardown
 	rm -f $(INSTALL_DIR)/update_sketchybar
-	rm -f $(INSTALL_DIR)/update_sketchybar.lock
+	rm -f /tmp/sketchybar-update.lock
 	brew services stop sketchybar
 	@echo ""
 	@echo "✓ Uninstalled. config.json and sketchybarrc left in place."

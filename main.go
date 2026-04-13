@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -13,7 +14,7 @@ import (
 )
 
 const (
-	menubarHeight   = 25
+	menubarHeight   = 30
 	numSpaces       = 5
 	windowsPerSpace = 4
 )
@@ -258,7 +259,9 @@ func runSketchybar(args []string) error {
 }
 
 func queryJSON(name string, args []string, out any) error {
-	data, err := exec.Command(name, args...).Output()
+	ctx, cancel := context.WithTimeout(context.Background(), yabaiTimeout)
+	defer cancel()
+	data, err := exec.CommandContext(ctx, name, args...).Output()
 	if err != nil {
 		return fmt.Errorf("%s %v: %w", name, args, err)
 	}
@@ -293,10 +296,10 @@ func initialize() error {
 		"color=0x00000000",
 		"position=top",
 		"height="+itoa(menubarHeight),
-		"margin=0", "y_offset="+itoa(-menubarHeight), "corner_radius=0",
+		"margin=0", "y_offset=0", "corner_radius=0",
 		"border_width=0", "blur_radius=0",
 		"padding_left=0", "padding_right=0",
-		"display=main", "topmost=on", "sticky=on", "font_smoothing=on",
+		"display=main", "topmost=window", "sticky=on", "font_smoothing=on",
 	)
 
 	push("--default",
@@ -307,7 +310,7 @@ func initialize() error {
 		"icon.padding_left=0", "icon.padding_right=0",
 		"label=", "label.drawing=on",
 		"label.font=Helvetica:Normal:13.0",
-		"label.color=0xb0ffffff",
+		"label.color=0xffffffff",
 		"label.padding_left=0", "label.padding_right=0",
 		"background.drawing=on", "background.corner_radius=3",
 		"background.padding_left=0", "background.padding_right=0",
@@ -323,7 +326,7 @@ func initialize() error {
 			"icon=", "icon.width=0",
 			"label="+itoa(si+1),
 			"label.font=Helvetica:Bold:12.0",
-			"label.color=0x50ffffff",
+			"label.color=0xffffffff",
 			"label.padding_left=6", "label.padding_right=2",
 		)
 
@@ -334,7 +337,7 @@ func initialize() error {
 			push("--add", "item", id, "center")
 			push("--set", id,
 				"drawing=on",
-				"label=", "label.color=0xb0ffffff",
+				"label=", "label.color=0xffffffff",
 				"background.height="+itoa(menubarHeight),
 				"background.color=0x00ffffff",
 			)
@@ -345,7 +348,7 @@ func initialize() error {
 		push("--set", spaceID,
 			"background.color=0x00ffffff",
 			"background.corner_radius=9999",
-			"background.height=20",
+			"background.height=26",
 		)
 
 		gapID := fmt.Sprintf("space.%d.gap", si)
@@ -391,7 +394,7 @@ func update(cfg *Config, spaces []Space, windows []Window, bar Bar, bundleNames 
 	}
 
 	push("--animate", "sin", "10")
-	push("--bar", "color=0x00000000", "position=top", "y_offset="+itoa(-menubarHeight))
+	push("--bar", "color=0x00000000", "position=top", "y_offset=2")
 
 	for si := range numSpaces {
 		spaceID := fmt.Sprintf("space.%d", si)
@@ -412,12 +415,7 @@ func update(cfg *Config, spaces []Space, windows []Window, bar Bar, bundleNames 
 		spaceActive := space != nil && space.IsVisible
 
 		//-------------- Space number --------------
-		numColor := "0x40ffffff"
-		if spaceActive {
-			numColor = "0xffffffff"
-		} else if !spaceEmpty {
-			numColor = "0x80ffffff"
-		}
+		numColor := "0xffffffff"
 		spaceLabel := ""
 		if space != nil {
 			spaceLabel = itoa(space.Index)
@@ -465,10 +463,7 @@ func update(cfg *Config, spaces []Space, windows []Window, bar Bar, bundleNames 
 				if app.Color != "" {
 					iconColor = app.Color
 				}
-				lblColor := "0xb0ffffff"
-				if spaceActive {
-					lblColor = "0xffffffff"
-				}
+				lblColor := "0xffffffff"
 
 				push("--set", itemID,
 					"icon="+app.Icon,
@@ -544,17 +539,25 @@ func installDir() string {
 	return home + "/.config/sketchybar"
 }
 
+const yabaiTimeout = 5 * time.Second
+
+func yabaiCmd(args ...string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), yabaiTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "yabai", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
 func setup() {
 	binary := installDir() + "/update_sketchybar"
 	teardown()
 	for _, event := range yabaiEvents {
 		label := signalLabelPrefix + event
-		cmd := exec.Command("yabai", "-m", "signal", "--add",
+		if err := yabaiCmd("-m", "signal", "--add",
 			"event="+event, "label="+label, "action="+binary,
-		)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
+		); err != nil {
 			fmt.Fprintf(os.Stderr, "failed to register signal %s: %v\n", event, err)
 		} else {
 			fmt.Printf("registered yabai signal: %s\n", event)
@@ -564,7 +567,7 @@ func setup() {
 
 func teardown() {
 	for _, event := range yabaiEvents {
-		exec.Command("yabai", "-m", "signal", "--remove", signalLabelPrefix+event).Run()
+		yabaiCmd("-m", "signal", "--remove", signalLabelPrefix+event)
 	}
 	fmt.Println("removed yabai signals")
 }
@@ -583,8 +586,7 @@ func main() {
 		}
 	}
 
-	home, _ := os.UserHomeDir()
-	lockFile := tryLock(home + "/.config/sketchybar/update_sketchybar.lock")
+	lockFile := tryLock(os.TempDir() + "/sketchybar-update.lock")
 	if lockFile == nil {
 		return
 	}
