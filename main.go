@@ -20,10 +20,7 @@ const (
 	windowsPerSpace = 4
 )
 
-const (
-	pillActive   = "0x50ffffff"
-	pillInactive = "0x28ffffff"
-)
+const pillActive = "0x50ffffff"
 
 var spaceBadgeColors = [numSpaces]string{
 	"0xcc6aadff", // blue
@@ -430,27 +427,20 @@ func update(cfg *Config, spaces []Space, windows []Window, bar Bar, bundleNames 
 			}
 		}
 
-		spaceEmpty := len(spaceWindows) == 0
 		spaceActive := space != nil && space.IsVisible
-		spaceVisible := spaceActive || !spaceEmpty
 
 		//-------------- Space left pad + number badge --------------
 		padID := fmt.Sprintf("space.%d.lpad", si)
-		padPx := "0"
 		numLabel := ""
-		badgeColor := "0x00ffffff"
-		if spaceVisible {
-			padPx = "2"
-			if space != nil {
-				numLabel = itoa(space.Index)
-			}
-			badgeColor = spaceBadgeColors[si]
-			if !spaceActive {
-				badgeColor = strings.Replace(badgeColor, "0xcc", "0x70", 1)
-			}
+		if space != nil {
+			numLabel = itoa(space.Index)
+		}
+		badgeColor := spaceBadgeColors[si]
+		if !spaceActive {
+			badgeColor = strings.Replace(badgeColor, "0xcc", "0x70", 1)
 		}
 		push("--set", padID,
-			"label.padding_left="+padPx, "label.padding_right="+padPx,
+			"label.padding_left=2", "label.padding_right=2",
 		)
 		push("--set", numID,
 			"label="+numLabel,
@@ -523,8 +513,6 @@ func update(cfg *Config, spaces []Space, windows []Window, bar Bar, bundleNames 
 		bracketBg := "0x00ffffff"
 		if spaceActive {
 			bracketBg = pillActive
-		} else if !spaceEmpty {
-			bracketBg = pillInactive
 		}
 		push("--set", spaceID,
 			"background.color="+bracketBg,
@@ -532,13 +520,9 @@ func update(cfg *Config, spaces []Space, windows []Window, bar Bar, bundleNames 
 
 		//-------------- Gap between spaces --------------
 		gapID := fmt.Sprintf("space.%d.gap", si)
-		gapPad := "3"
-		if !spaceVisible {
-			gapPad = "0"
-		}
 		push("--set", gapID,
 			"label=",
-			"label.padding_left="+gapPad, "label.padding_right="+gapPad,
+			"label.padding_left=3", "label.padding_right=3",
 		)
 	}
 
