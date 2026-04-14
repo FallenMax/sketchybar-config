@@ -1,7 +1,17 @@
 #!/usr/bin/env sh
 
-sketchybar --update
+BINARY="$HOME/.config/sketchybar/update_sketchybar"
 
-$HOME/.config/sketchybar/update_sketchybar
+sketchybar --update
+$BINARY
+
+# Register yabai signals in background (yabai may not be ready yet on boot)
+(
+  for i in 1 2 3; do
+    yabai -m query --spaces >/dev/null 2>&1 && exec $BINARY setup
+    sleep 3
+  done
+  $BINARY setup
+) &
 
 echo "sketchybar configuration loaded.."
