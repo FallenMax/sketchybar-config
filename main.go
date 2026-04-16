@@ -566,9 +566,19 @@ func yabaiCmd(args ...string) error {
 	return cmd.Run()
 }
 
+const yabaircMarker = "# sketchybar-config: auto-registered signals"
+
 func setup() {
 	binary := installDir() + "/update_sketchybar"
-	teardown()
+	registerSignals(binary)
+	ensureYabairc(binary)
+}
+
+func registerSignals(binary string) {
+	for _, event := range yabaiEvents {
+		label := signalLabelPrefix + event
+		yabaiCmd("-m", "signal", "--remove", label)
+	}
 	for _, event := range yabaiEvents {
 		label := signalLabelPrefix + event
 		if err := yabaiCmd("-m", "signal", "--add",
@@ -581,11 +591,58 @@ func setup() {
 	}
 }
 
+func ensureYabairc(binary string) {
+	home, _ := os.UserHomeDir()
+	rcPath := home + "/.yabairc"
+	setupLine := binary + " setup &"
+
+	existing, _ := os.ReadFile(rcPath)
+	content := string(existing)
+	if strings.Contains(content, yabaircMarker) {
+		fmt.Println("~/.yabairc already has setup hook")
+		return
+	}
+
+	block := "\n" + yabaircMarker + "\n" + setupLine + "\n"
+	f, err := os.OpenFile(rcPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0755)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: cannot write ~/.yabairc: %v\n", err)
+		return
+	}
+	defer f.Close()
+	f.WriteString(block)
+	fmt.Println("added setup hook to ~/.yabairc")
+}
+
 func teardown() {
 	for _, event := range yabaiEvents {
 		yabaiCmd("-m", "signal", "--remove", signalLabelPrefix+event)
 	}
 	fmt.Println("removed yabai signals")
+
+	home, _ := os.UserHomeDir()
+	rcPath := home + "/.yabairc"
+	data, err := os.ReadFile(rcPath)
+	if err != nil {
+		return
+	}
+	lines := strings.Split(string(data), "\n")
+	var kept []string
+	skip := false
+	for _, line := range lines {
+		if line == yabaircMarker {
+			skip = true
+			continue
+		}
+		if skip {
+			skip = false
+			continue
+		}
+		kept = append(kept, line)
+	}
+	result := strings.Join(kept, "\n")
+	os.WriteFile(rcPath, []byte(result), 0755)
+	fmt.Println("removed setup hook from ~/.yabairc")
 }
 
 //-------------- Main --------------
