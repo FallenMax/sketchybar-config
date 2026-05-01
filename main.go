@@ -17,18 +17,8 @@ import (
 const (
 	menubarHeight   = 30
 	numSpaces       = 5
-	windowsPerSpace = 4
+	windowsPerSpace = 5
 )
-
-const pillActive = "0x50ffffff"
-
-var spaceBadgeColors = [numSpaces]string{
-	"0xcc6aadff", // blue
-	"0xcca78bfa", // violet
-	"0xcc5cc9b0", // teal
-	"0xccf0b429", // amber
-	"0xccf472b6", // rose
-}
 
 //-------------- Config (loaded from ~/.config/sketchybar/config.json) --------------
 
@@ -40,6 +30,7 @@ type Config struct {
 type AppConfig struct {
 	ID        string `json:"id"`
 	Icon      string `json:"icon"`
+	Color     string `json:"color,omitempty"`
 	HideTitle bool   `json:"hideTitle,omitempty"`
 }
 
@@ -59,6 +50,9 @@ func loadConfig() Config {
 	}
 	for i := range cfg.Apps {
 		cfg.Apps[i].Icon = parseIcon(cfg.Apps[i].Icon)
+		if cfg.Apps[i].Color == "" {
+			cfg.Apps[i].Color = "0xffffffff"
+		}
 	}
 	return cfg
 }
@@ -67,20 +61,20 @@ func defaultConfig() Config {
 	return Config{
 		MaxTitleWords: 3,
 		Apps: []AppConfig{
-			{ID: "Google Chrome", Icon: "\U000F02AF"},
-			{ID: "Safari", Icon: "\U000F0584"},
-			{ID: "Firefox", Icon: "\U000F0239"},
-			{ID: "Visual Studio Code", Icon: "\U000F0A1E"},
-			{ID: "Cursor", Icon: "\U000F0A1E"},
-			{ID: "Ghostty", Icon: "\uF489"},
-			{ID: "Alacritty", Icon: "\uF489"},
-			{ID: "Terminal", Icon: "\uF489"},
-			{ID: "Warp", Icon: "\uF489"},
-			{ID: "Finder", Icon: "\U000F0036"},
-			{ID: "WeChat", Icon: "\U000F0611", HideTitle: true},
-			{ID: "Slack", Icon: "\U000F04B1"},
-			{ID: "zoom.us", Icon: "\U000F0568"},
-			{ID: "Spotify", Icon: "\U000F04C7"},
+			{ID: "Google Chrome", Icon: "\U000F02AF", Color: "0xfff1bf47"},
+			{ID: "Safari", Icon: "\U000F0584", Color: "0xff4ba0e8"},
+			{ID: "Firefox", Icon: "\U000F0239", Color: "0xffff6611"},
+			{ID: "Visual Studio Code", Icon: "\U000F0A1E", Color: "0xff4b9ae9"},
+			{ID: "Cursor", Icon: "\U000F0A1E", Color: "0xff4b9ae9"},
+			{ID: "Ghostty", Icon: "\uF489", Color: "0xffcc822e"},
+			{ID: "Alacritty", Icon: "\uF489", Color: "0xffcc822e"},
+			{ID: "Terminal", Icon: "\uF489", Color: "0xffffffff"},
+			{ID: "Warp", Icon: "\uF489", Color: "0xff01c1a7"},
+			{ID: "Finder", Icon: "\U000F0036", Color: "0xff1abffb"},
+			{ID: "WeChat", Icon: "\U000F0611", Color: "0xff10d962", HideTitle: true},
+			{ID: "Slack", Icon: "\U000F04B1", Color: "0xffe01e5a"},
+			{ID: "zoom.us", Icon: "\U000F0568", Color: "0xff2d8cff"},
+			{ID: "Spotify", Icon: "\U000F04C7", Color: "0xff65d56e"},
 		},
 	}
 }
@@ -283,10 +277,9 @@ func tryLock(path string) *os.File {
 //-------------- Initialize bar structure --------------
 //
 // Creates the fixed bar item structure. Items per space:
-//   space.{i}.num  — space number (always visible, doubles as shortcut hint)
-//   space.{i}.0…3  — window slots
+//   space.{i}.0…4  — window slots (slot 0 doubles as space number when empty)
 //   space.{i}      — bracket grouping the above
-//   space.{i}.gap  — spacing between spaces
+//   space.{i}.gap  — separator between spaces
 
 func initialize() error {
 	var args []string
@@ -305,56 +298,29 @@ func initialize() error {
 	push("--default",
 		"updates=when_shown", "drawing=on",
 		"icon=", "icon.drawing=on",
-		"icon.font=Hack Nerd Font:Bold:14.0",
+		"icon.font=Hack Nerd Font:Bold:16.0",
 		"icon.color=0xffffffff",
 		"icon.padding_left=0", "icon.padding_right=0",
 		"label=", "label.drawing=on",
-		"label.font=Helvetica:Normal:13.0",
-		"label.color=0xffffffff",
+		"label.font=Helvetica:Normal:14.0",
+		"label.color=0xccffffff",
 		"label.padding_left=0", "label.padding_right=0",
-		"background.drawing=on", "background.corner_radius=3",
+		"background.drawing=on", "background.corner_radius=2",
 		"background.padding_left=0", "background.padding_right=0",
 		"background.color=0x00ffffff",
-		"background.height="+itoa(menubarHeight),
+		"background.height="+itoa(menubarHeight-4),
 	)
 
 	for si := range numSpaces {
-		padID := fmt.Sprintf("space.%d.lpad", si)
-		push("--add", "item", padID, "center")
-		push("--set", padID,
-			"drawing=on",
-			"icon.drawing=off",
-			"label= ",
-			"label.font=Helvetica:Normal:1.0",
-			"label.color=0x00ffffff",
-			"label.padding_left=2", "label.padding_right=2",
-			"background.drawing=off",
-		)
-
-		numID := fmt.Sprintf("space.%d.num", si)
-		push("--add", "item", numID, "center")
-		push("--set", numID,
-			"drawing=on",
-			"icon=", "icon.drawing=off",
-			"label="+itoa(si+1),
-			"label.font=Helvetica:Bold:11.0",
-			"label.color=0xffffffff",
-			"label.padding_left=6", "label.padding_right=6",
-			"background.drawing=on",
-			"background.color="+spaceBadgeColors[si],
-			"background.corner_radius=4",
-			"background.height=18",
-		)
-
-		bracketItems := []string{padID, numID}
+		var bracketItems []string
 		for wi := range windowsPerSpace {
 			id := fmt.Sprintf("space.%d.%d", si, wi)
 			bracketItems = append(bracketItems, id)
 			push("--add", "item", id, "center")
 			push("--set", id,
 				"drawing=on",
-				"label=", "label.color=0xffffffff",
-				"background.height="+itoa(menubarHeight),
+				"label=", "label.color=0xccffffff",
+				"background.height=18",
 				"background.color=0x00ffffff",
 			)
 		}
@@ -362,16 +328,16 @@ func initialize() error {
 		spaceID := fmt.Sprintf("space.%d", si)
 		push(append([]string{"--add", "bracket", spaceID}, bracketItems...)...)
 		push("--set", spaceID,
-			"background.color=0x00ffffff",
-			"background.corner_radius=8",
-			"background.height=26",
+			"background.color=0x18ffffff",
+			"background.corner_radius=4",
+			"background.height="+itoa(menubarHeight),
 		)
 
 		gapID := fmt.Sprintf("space.%d.gap", si)
 		push("--add", "item", gapID, "center")
 		push("--set", gapID,
 			"label=",
-			"label.padding_left=3", "label.padding_right=3",
+			"label.padding_left=4", "label.padding_right=4",
 			"background.drawing=on", "background.color=0x00ffffff",
 			"background.padding_left=0", "background.padding_right=0",
 		)
@@ -412,9 +378,10 @@ func update(cfg *Config, spaces []Space, windows []Window, bar Bar, bundleNames 
 	push("--animate", "sin", "10")
 	push("--bar", "color=0x00000000", "position=top", "y_offset=2")
 
+	labelColor := "0xccffffff"
+
 	for si := range numSpaces {
 		spaceID := fmt.Sprintf("space.%d", si)
-		numID := fmt.Sprintf("space.%d.num", si)
 
 		var space *Space
 		var spaceWindows []Window
@@ -428,24 +395,7 @@ func update(cfg *Config, spaces []Space, windows []Window, bar Bar, bundleNames 
 		}
 
 		spaceActive := space != nil && space.IsVisible
-
-		//-------------- Space left pad + number badge --------------
-		padID := fmt.Sprintf("space.%d.lpad", si)
-		numLabel := ""
-		if space != nil {
-			numLabel = itoa(space.Index)
-		}
-		badgeColor := spaceBadgeColors[si]
-		if !spaceActive {
-			badgeColor = strings.Replace(badgeColor, "0xcc", "0x70", 1)
-		}
-		push("--set", padID,
-			"label.padding_left=2", "label.padding_right=2",
-		)
-		push("--set", numID,
-			"label="+numLabel,
-			"background.color="+badgeColor,
-		)
+		spaceEmpty := len(spaceWindows) == 0
 
 		//-------------- Stable slot assignment --------------
 		prev := data[si]
@@ -472,7 +422,22 @@ func update(cfg *Config, spaces []Space, windows []Window, bar Bar, bundleNames 
 			wID := next[wi]
 			win, hasWin := windowsByID[wID]
 
-			if hasWin && wID != 0 {
+			if spaceEmpty && wi == 0 {
+				// Empty space: show space number in first slot
+				spaceLabel := ""
+				if space != nil {
+					spaceLabel = itoa(space.Index)
+				}
+				push("--set", itemID,
+					"icon=", "icon.width=0",
+					"icon.padding_left=0", "icon.padding_right=0",
+					"label="+spaceLabel,
+					"label.color="+labelColor,
+					"label.padding_left=10", "label.padding_right=7",
+					"background.color=0x00ffffff",
+					"background.padding_left=0", "background.padding_right=0",
+				)
+			} else if hasWin && wID != 0 {
 				app := findApp(cfg, win.App, bundleNames[win.PID])
 				label := ""
 				if !app.HideTitle {
@@ -481,20 +446,24 @@ func update(cfg *Config, spaces []Space, windows []Window, bar Bar, bundleNames 
 
 				iconWidth := 0
 				if app.Icon != "" {
-					iconWidth = 22
+					iconWidth = 26
+				}
+
+				winLabelColor := labelColor
+				if spaceActive {
+					winLabelColor = "0xffffffff"
 				}
 
 				push("--set", itemID,
 					"icon="+app.Icon,
 					"icon.width="+itoa(iconWidth),
-					"icon.color=0xb0ffffff",
-					"icon.padding_left=4", "icon.padding_right=2",
+					"icon.color="+app.Color,
+					"icon.padding_left=8", "icon.padding_right=4",
 					"label="+label,
-					"label.color=0xffffffff",
-					"label.padding_left=1", "label.padding_right=4",
+					"label.color="+winLabelColor,
+					"label.padding_left=4", "label.padding_right=5",
 					"background.color=0x00ffffff",
-					"background.corner_radius=3",
-					"background.padding_left=0", "background.padding_right=0",
+					"background.padding_left=4", "background.padding_right=1",
 				)
 			} else {
 				push("--set", itemID,
@@ -509,20 +478,22 @@ func update(cfg *Config, spaces []Space, windows []Window, bar Bar, bundleNames 
 
 		data[si] = next
 
-		//-------------- Bracket background (pill) --------------
+		//-------------- Bracket background --------------
 		bracketBg := "0x00ffffff"
 		if spaceActive {
-			bracketBg = pillActive
+			bracketBg = "0x30ffffff"
 		}
 		push("--set", spaceID,
 			"background.color="+bracketBg,
 		)
 
-		//-------------- Gap between spaces --------------
+		//-------------- Gap: | separator between spaces --------------
 		gapID := fmt.Sprintf("space.%d.gap", si)
 		push("--set", gapID,
-			"label=",
-			"label.padding_left=3", "label.padding_right=3",
+			"label=|",
+			"label.color=0x30ffffff",
+			"label.padding_left=4", "label.padding_right=4",
+			"background.padding_left=4", "background.padding_right=4",
 		)
 	}
 
@@ -706,7 +677,7 @@ func main() {
 	queryDone := time.Now()
 
 	needsInit := len(bar.Items) == 0
-	if !needsInit && !hasItem(bar.Items, "space.0.lpad") {
+	if !needsInit && !hasItem(bar.Items, "space.0.0") {
 		fmt.Fprintln(os.Stderr, "bar structure outdated, restart sketchybar: brew services restart sketchybar")
 		os.Exit(0)
 	}
