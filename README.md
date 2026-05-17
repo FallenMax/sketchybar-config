@@ -4,23 +4,80 @@ My SketchyBar setup mentioned at https://github.com/FelixKratz/SketchyBar/discus
 
 Features
 
-- Displays app titles and updates on change (with animation ✨)
-  - Instead of using spaces for fixed purposes, I allocate any new task to a free space. So it's nice to know how spaces are used and their purpose from a glance
-- Co-exists with macOS native menubar
-  - Native menubar is useful, also I'm using [MenubarX](https://menubarx.app/)
-- Written in TypeScript
-  - Easier to maintain for complex logic (a.k.a. I can't write bash)
+- Overlays the macOS native menubar (transparent background, coexists with native items)
+- Shows space numbers as keyboard shortcut hints, with app icons and titles
+- Updates on window/space changes via yabai signals (with animation)
+- Configurable app list via JSON — no recompilation needed
+- Single static binary, zero runtime dependencies
 
-Usage:
+## Prerequisites
 
-- Install required dependencies:
-  - node.js (run `npm install` or using yarn/pnpm)
-  - yabai (query window info)
-  - [flock](https://github.com/discoteq/flock) (to prevent multiple instances of the script)
-- Modify code to your liking
-  - Be sure to replace _"YOUR_USERNAME"_ to your own
+- macOS (Apple Silicon)
+- [Homebrew](https://brew.sh/)
+- [sketchybar](https://github.com/FelixKratz/SketchyBar) — `brew install FelixKratz/formulae/sketchybar`
+- [yabai](https://github.com/koekeishiya/yabai) — `brew install koekeishiya/formulae/yabai`
+- [Hack Nerd Font](https://www.nerdfonts.com/) — `brew install --cask font-hack-nerd-font`
+- [Go](https://go.dev/) — `brew install go` (build only)
 
-Known issues:
+## Install
 
-- ~~After upgrading macos to Ventura, bar items jitter when update, no idea how to fix it yet~~
-- Does not update when moving a window to another space using yabai, yabai seems not emit any event when this happens: [#1272](https://github.com/koekeishiya/yabai/issues/1272)
+```sh
+git clone https://github.com/user/sketchybar-config.git
+cd sketchybar-config
+make install
+```
+
+This will:
+1. Build the binary
+2. Install to `~/.config/sketchybar/`
+3. Copy `config.default.json` → `config.json` (first install only)
+4. Register yabai signals so the bar updates on window changes
+5. Restart sketchybar
+
+## Uninstall
+
+```sh
+make uninstall
+```
+
+## Configuration
+
+Edit `~/.config/sketchybar/config.json`:
+
+```json
+{
+  "maxTitleLength": 12,
+  "apps": [
+    {
+      "id": "Google Chrome",
+      "icon": "U+F02AF",
+      "color": "0xfff1bf47",
+      "stripSuffix": " - Google Chrome"
+    }
+  ]
+}
+```
+
+The `id` is the `.app` bundle name (e.g., `"Finder"` from `Finder.app`), which is
+language-independent — unlike localized display names. Check `/Applications/` or
+run `ps -e -o comm=` to find your app's bundle name.
+
+### App fields
+
+| Field | Required | Description |
+|---|---|---|
+| `id` | yes | `.app` bundle name (language-independent). Use `"*"` as catch-all for unlisted apps |
+| `icon` | yes | Nerd Font icon — hex code (`"U+F02AF"`) or raw unicode char |
+| `color` | no | Icon color in `0xAARRGGBB` format |
+| `stripSuffix` | no | Remove this suffix from window title |
+| `titleSeparator` | no | Split title by this string |
+| `titlePart` | no | Which part after split (0=first, -1=last) |
+| `hideTitle` | no | Show only icon, no title |
+
+Find icons at [nerdfonts.com/cheat-sheet](https://www.nerdfonts.com/cheat-sheet).
+
+After editing config.json, restart sketchybar to apply:
+
+```sh
+brew services restart sketchybar
+```

@@ -1,20 +1,33 @@
+INSTALL_DIR = $(HOME)/.config/sketchybar
 
 build:
-	# use esbuild to build src/*.ts -> update_sketchybar.mjs
-	@echo "build"
-	esbuild --bundle --target=esnext --format=esm --outfile=update_sketchybar.mjs  --platform=node --external:zx src/update_sketchybar.ts 
+	go build -o update_sketchybar -ldflags="-s -w" .
 
-config:
-	@echo "apply config"
-	brew services restart sketchybar 
-	./update_sketchybar.mjs
+install: build
+	mkdir -p $(INSTALL_DIR)
+	rm -f $(INSTALL_DIR)/update_sketchybar
+	cp update_sketchybar $(INSTALL_DIR)/
+	cp sketchybarrc $(INSTALL_DIR)/
+	chmod +x $(INSTALL_DIR)/sketchybarrc
+	@if [ ! -f $(INSTALL_DIR)/config.json ]; then \
+		cp config.default.json $(INSTALL_DIR)/config.json; \
+		echo "created $(INSTALL_DIR)/config.json from defaults"; \
+	else \
+		echo "$(INSTALL_DIR)/config.json already exists, skipping"; \
+	fi
+	-$(INSTALL_DIR)/update_sketchybar teardown
+	$(INSTALL_DIR)/update_sketchybar setup
+	brew services restart sketchybar
+	@sleep 2
+	$(INSTALL_DIR)/update_sketchybar
+	@echo ""
+	@echo "✓ Installed to $(INSTALL_DIR)"
+	@echo "  Edit $(INSTALL_DIR)/config.json to customize apps"
 
-watch:
-  # https://stackoverflow.com/questions/3004811/how-do-you-run-multiple-programs-in-parallel-from-a-bash-script
-	@echo "start watching"
-	( \
-		trap 'kill 0' SIGINT; \
-		chokidar 'src/*.ts' -c 'make build' & \
-		chokidar 'sketchybarrc' -c 'brew services restart sketchybar' & \
-		chokidar '*.mjs' -c './update_sketchybar.mjs' \
-	)
+uninstall:
+	$(INSTALL_DIR)/update_sketchybar teardown
+	rm -f $(INSTALL_DIR)/update_sketchybar
+	rm -f /tmp/sketchybar-update.lock
+	brew services stop sketchybar
+	@echo ""
+	@echo "✓ Uninstalled. config.json and sketchybarrc left in place."
