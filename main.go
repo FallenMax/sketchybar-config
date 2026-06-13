@@ -1,11 +1,5 @@
 package main
 
-/*
-#cgo LDFLAGS: -framework CoreGraphics
-#include <CoreGraphics/CoreGraphics.h>
-*/
-import "C"
-
 import (
 	"context"
 	"encoding/json"
@@ -20,8 +14,32 @@ import (
 	"unicode"
 )
 
+const displayCacheFile = "/tmp/sketchybar-display-builtin"
+
+/** detectAndCacheDisplay uses swift to call CoreGraphics and caches
+the result in a temp file. Only called during setup or display change events. */
+func detectAndCacheDisplay() bool {
+	out, err := exec.Command("swift", "-e",
+		`import CoreGraphics; print(CGDisplayIsBuiltin(CGMainDisplayID()) != 0 ? "1" : "0")`).Output()
+	builtin := false
+	if err == nil {
+		builtin = strings.TrimSpace(string(out)) == "1"
+	}
+	val := "0"
+	if builtin {
+		val = "1"
+	}
+	os.WriteFile(displayCacheFile, []byte(val), 0644)
+	fmt.Printf("detected display: builtin=%v\n", builtin)
+	return builtin
+}
+
 func isMainDisplayBuiltin() bool {
-	return C.CGDisplayIsBuiltin(C.CGMainDisplayID()) != 0
+	data, err := os.ReadFile(displayCacheFile)
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(data)) == "1"
 }
 
 const (
@@ -362,6 +380,7 @@ func initialize(builtinDisplay bool) error {
 		"label.font=Helvetica:Normal:14.0",
 		"label.color=0xccffffff",
 		"label.padding_left=0", "label.padding_right=0",
+		"label.y_offset=-1",
 		"background.drawing=on", "background.corner_radius=2",
 		"background.padding_left=0", "background.padding_right=0",
 		"background.color=0x00ffffff",
@@ -385,9 +404,11 @@ func initialize(builtinDisplay bool) error {
 		spaceID := fmt.Sprintf("space.%d", si)
 		push(append([]string{"--add", "bracket", spaceID}, bracketItems...)...)
 		push("--set", spaceID,
-			"background.color=0x18ffffff",
+			"background.color=0x4d000000",
 			"background.corner_radius=9999",
 			"background.height=22",
+			"background.border_width=0",
+			"background.border_color=0x00000000",
 		)
 
 		gapID := fmt.Sprintf("space.%d.gap", si)
@@ -419,10 +440,6 @@ func update(cfg *Config, spaces []Space, windows []Window, bundleNames map[int]s
 
 	data := decodeSlots(slotsData)
 
-	push("--animate", "sin", "10")
-
-	labelColor := "0xccffffff"
-
 	for si := range numSpaces {
 		spaceID := fmt.Sprintf("space.%d", si)
 
@@ -443,105 +460,106 @@ func update(cfg *Config, spaces []Space, windows []Window, bundleNames map[int]s
 		}
 
 		spaceActive := space != nil && space.IsVisible
-		spaceEmpty := len(spaceWindows) == 0
 
-		//-------------- Stable slot assignment --------------
+		//-------------- Stable slot assignment (slots 1-4 for windows) --------------
 		prev := data[si]
 		for len(prev) < windowsPerSpace {
 			prev = append(prev, 0)
 		}
 		next := make([]int, windowsPerSpace)
 		for _, win := range spaceWindows {
-			if idx := indexOf(prev, win.ID); idx != -1 && idx < windowsPerSpace {
+			if idx := indexOf(prev, win.ID); idx > 0 && idx < windowsPerSpace {
 				next[idx] = win.ID
 			}
 		}
 		for _, win := range spaceWindows {
-			if indexOf(prev, win.ID) == -1 {
-				if idx := indexOf(next, 0); idx != -1 {
-					next[idx] = win.ID
+			if indexOf(next, win.ID) == -1 {
+				for idx := 1; idx < windowsPerSpace; idx++ {
+					if next[idx] == 0 {
+						next[idx] = win.ID
+						break
+					}
 				}
 			}
 		}
 
-		//-------------- Window slots --------------
+		//-------------- Render slots --------------
+		iconColor := "0xff9ca3af" // gray-400
+		if spaceActive {
+			iconColor = "0xff60a5fa" // blue-400
+		}
+
 		for wi := range windowsPerSpace {
 			itemID := fmt.Sprintf("space.%d.%d", si, wi)
-			wID := next[wi]
-			win, hasWin := windowsByID[wID]
 
-			if spaceEmpty && wi == 0 {
-				// Empty space: show space number in first slot
-				spaceLabel := ""
+			if wi == 0 {
+				numLabel := ""
 				if space != nil {
-					spaceLabel = itoa(space.Index)
+					numLabel = itoa(space.Index)
+				}
+				numColor := "0xff9ca3af"
+				if spaceActive {
+					numColor = "0xffffffff"
 				}
 				push("--set", itemID,
 					"icon=", "icon.width=0",
 					"icon.padding_left=0", "icon.padding_right=0",
-					"label="+spaceLabel,
-					"label.color="+labelColor,
-					"label.padding_left=10", "label.padding_right=7",
+					"label="+numLabel,
+					"label.color="+numColor,
+					"label.padding_left=8", "label.padding_right=4",
 					"background.color=0x00ffffff",
 					"background.padding_left=0", "background.padding_right=0",
-				)
-			} else if hasWin && wID != 0 {
-				app := findApp(cfg, win.App, bundleNames[win.PID])
-				label := ""
-				if !app.HideTitle {
-					label = cleanTitle(win.Title, cfg.MaxTitleWords)
-				}
-
-				iconWidth := 0
-				if app.Icon != "" {
-					iconWidth = 26
-				}
-
-				winLabelColor := labelColor
-				if spaceActive {
-					winLabelColor = "0xffffffff"
-				}
-
-				push("--set", itemID,
-					"icon="+app.Icon,
-					"icon.width="+itoa(iconWidth),
-					"icon.color="+app.Color,
-					"icon.padding_left=8", "icon.padding_right=4",
-					"label="+label,
-					"label.color="+winLabelColor,
-					"label.padding_left=4", "label.padding_right=5",
-					"background.color=0x00ffffff",
-					"background.padding_left=4", "background.padding_right=1",
 				)
 			} else {
-				push("--set", itemID,
-					"icon=", "icon.width=0",
-					"icon.padding_left=0", "icon.padding_right=0",
-					"label=", "label.padding_left=0", "label.padding_right=0",
-					"background.color=0x00ffffff",
-					"background.padding_left=0", "background.padding_right=0",
-				)
+				wID := next[wi]
+				win, hasWin := windowsByID[wID]
+
+				if hasWin && wID != 0 {
+					app := findApp(cfg, win.App, bundleNames[win.PID])
+					push("--set", itemID,
+						"icon="+app.Icon,
+						"icon.width=20",
+						"icon.color="+iconColor,
+						"icon.padding_left=2", "icon.padding_right=2",
+						"label=", "label.padding_left=0", "label.padding_right=0",
+						"background.color=0x00ffffff",
+						"background.padding_left=0", "background.padding_right=0",
+					)
+				} else {
+					push("--set", itemID,
+						"icon=", "icon.width=0",
+						"icon.padding_left=0", "icon.padding_right=0",
+						"label=", "label.padding_left=0", "label.padding_right=0",
+						"background.color=0x00ffffff",
+						"background.padding_left=0", "background.padding_right=0",
+					)
+				}
 			}
 		}
 
 		data[si] = next
 
-		//-------------- Bracket background --------------
-		bracketBg := "0x00ffffff"
+		//-------------- Bracket: accent border on active, dim on inactive --------------
 		if spaceActive {
-			bracketBg = "0x30ffffff"
+			push("--set", spaceID,
+				"background.color=0x99000000",
+				"background.border_width=2",
+				"background.border_color=0xff3b82f6",
+			)
+		} else {
+			push("--set", spaceID,
+				"background.color=0x4d000000",
+				"background.border_width=0",
+				"background.border_color=0x00000000",
+			)
 		}
-		push("--set", spaceID,
-			"background.color="+bracketBg,
-		)
 
-		//-------------- Gap: | separator between spaces --------------
+		//-------------- Gap between pills --------------
 		gapID := fmt.Sprintf("space.%d.gap", si)
 		push("--set", gapID,
-			"label=|",
-			"label.color=0x30ffffff",
-			"label.padding_left=4", "label.padding_right=4",
-			"background.padding_left=4", "background.padding_right=4",
+			"label=",
+			"label.padding_left=3", "label.padding_right=3",
+			"background.padding_left=0", "background.padding_right=0",
 		)
 	}
 
@@ -587,6 +605,7 @@ const yabaircMarker = "# sketchybar-config: auto-registered signals"
 
 func setup() {
 	binary := installDir() + "/update_sketchybar"
+	detectAndCacheDisplay()
 	registerSignals(binary)
 	ensureYabairc(binary)
 }
@@ -598,8 +617,12 @@ func registerSignals(binary string) {
 	}
 	for _, event := range yabaiEvents {
 		label := signalLabelPrefix + event
+		action := binary
+		if event == "display_added" || event == "display_removed" {
+			action = binary + " detect-display"
+		}
 		if err := yabaiCmd("-m", "signal", "--add",
-			"event="+event, "label="+label, "action="+binary,
+			"event="+event, "label="+label, "action="+action,
 		); err != nil {
 			fmt.Fprintf(os.Stderr, "failed to register signal %s: %v\n", event, err)
 		} else {
@@ -673,6 +696,9 @@ func main() {
 		case "teardown":
 			teardown()
 			return
+		case "detect-display":
+			detectAndCacheDisplay()
+			// fall through to normal update
 		}
 	}
 
@@ -685,19 +711,22 @@ func main() {
 	cfg := loadConfig()
 	start := time.Now()
 
-	builtinDisplay := isMainDisplayBuiltin()
-
 	var (
-		spaces      []Space
-		windows     []Window
-		bar         Bar
-		slotsData   string
-		bundleNames map[int]string
-		errs        [3]error
-		wg          sync.WaitGroup
+		builtinDisplay bool
+		spaces         []Space
+		windows        []Window
+		bar            Bar
+		slotsData      string
+		bundleNames    map[int]string
+		errs           [3]error
+		wg             sync.WaitGroup
 	)
 
-	wg.Add(5)
+	wg.Add(6)
+	go func() {
+		defer wg.Done()
+		builtinDisplay = isMainDisplayBuiltin()
+	}()
 	go func() {
 		defer wg.Done()
 		errs[0] = queryJSON("yabai", []string{"-m", "query", "--spaces"}, &spaces)
@@ -759,17 +788,14 @@ func main() {
 			os.Exit(1)
 		}
 		slotsData = ""
+		if builtinDisplay {
+			yabaiCmd("-m", "config", "bottom_padding", itoa(menubarHeight+5))
+		}
 	}
 
 	if err := update(&cfg, spaces, windows, bundleNames, slotsData); err != nil {
 		fmt.Fprintf(os.Stderr, "update error: %v\n", err)
 		os.Exit(1)
-	}
-
-	if builtinDisplay {
-		yabaiCmd("-m", "config", "bottom_padding", itoa(menubarHeight+5))
-	} else {
-		yabaiCmd("-m", "config", "bottom_padding", "5")
 	}
 
 	done := time.Now()

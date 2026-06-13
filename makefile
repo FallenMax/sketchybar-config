@@ -1,7 +1,7 @@
 INSTALL_DIR = $(HOME)/.config/sketchybar
 
 build:
-	go build -o update_sketchybar -ldflags="-s -w" .
+	CGO_ENABLED=0 go build -o update_sketchybar -ldflags="-s -w" .
 
 install: build
 	mkdir -p $(INSTALL_DIR)
