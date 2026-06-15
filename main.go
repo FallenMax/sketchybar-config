@@ -520,7 +520,7 @@ func update(cfg *Config, spaces []Space, windows []Window, bundleNames map[int]s
 						"icon="+app.Icon,
 						"icon.width=20",
 						"icon.color="+iconColor,
-						"icon.padding_left=2", "icon.padding_right=2",
+						"icon.padding_left=2", "icon.padding_right=6",
 						"label=", "label.padding_left=0", "label.padding_right=0",
 						"background.color=0x00ffffff",
 						"background.padding_left=0", "background.padding_right=0",
