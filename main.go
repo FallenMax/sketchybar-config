@@ -489,6 +489,14 @@ func update(cfg *Config, spaces []Space, windows []Window, bundleNames map[int]s
 			iconColor = "0xff60a5fa" // blue-400
 		}
 
+		lastOccupied := 0
+		for wi := windowsPerSpace - 1; wi >= 1; wi-- {
+			if next[wi] != 0 {
+				lastOccupied = wi
+				break
+			}
+		}
+
 		for wi := range windowsPerSpace {
 			itemID := fmt.Sprintf("space.%d.%d", si, wi)
 
@@ -501,12 +509,16 @@ func update(cfg *Config, spaces []Space, windows []Window, bundleNames map[int]s
 				if spaceActive {
 					numColor = "0xffffffff"
 				}
+				rpad := "4"
+				if lastOccupied == 0 {
+					rpad = "8"
+				}
 				push("--set", itemID,
 					"icon=", "icon.width=0",
 					"icon.padding_left=0", "icon.padding_right=0",
 					"label="+numLabel,
 					"label.color="+numColor,
-					"label.padding_left=8", "label.padding_right=4",
+					"label.padding_left=8", "label.padding_right="+rpad,
 					"background.color=0x00ffffff",
 					"background.padding_left=0", "background.padding_right=0",
 				)
@@ -516,11 +528,15 @@ func update(cfg *Config, spaces []Space, windows []Window, bundleNames map[int]s
 
 				if hasWin && wID != 0 {
 					app := findApp(cfg, win.App, bundleNames[win.PID])
+					rpad := "2"
+					if wi == lastOccupied {
+						rpad = "6"
+					}
 					push("--set", itemID,
 						"icon="+app.Icon,
 						"icon.width=20",
 						"icon.color="+iconColor,
-						"icon.padding_left=2", "icon.padding_right=6",
+						"icon.padding_left=2", "icon.padding_right="+rpad,
 						"label=", "label.padding_left=0", "label.padding_right=0",
 						"background.color=0x00ffffff",
 						"background.padding_left=0", "background.padding_right=0",
