@@ -1,6 +1,19 @@
 #!/usr/bin/env sh
 
-sketchybar --update
-$HOME/.config/sketchybar/update_sketchybar
+BINARY=$HOME/.config/sketchybar/update_sketchybar
 
-echo "sketchybar configuration loaded.."
+# Wait for yabai in background, then register signals and render bar.
+# Handles any startup order between sketchybar and yabai.
+(
+  n=0
+  while ! yabai -m query --spaces >/dev/null 2>&1; do
+    n=$((n + 1))
+    if [ $n -ge 30 ]; then
+      echo "sketchybarrc: timed out waiting for yabai" >&2
+      exit 1
+    fi
+    sleep 2
+  done
+  $BINARY setup
+  $BINARY
+) &
