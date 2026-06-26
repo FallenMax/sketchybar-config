@@ -6,6 +6,8 @@
     { "id": "Firefox", "icon": "U+F0239", "color": "0xffff6611" },
     { "id": "Visual Studio Code", "icon": "U+F0A1E", "color": "0xff4b9ae9" },
     { "id": "Cursor", "icon": "U+F0A1E", "color": "0xff4b9ae9" },
+    { "id": "Codex", "icon": "U+EC1E", "color": "0xff10a37f" },
+    { "id": "Claude", "icon": "U+F09D1", "color": "0xffff8a4c" },
     { "id": "Ghostty", "icon": "U+F489", "color": "0xffcc822e" },
     { "id": "Alacritty", "icon": "U+F489", "color": "0xffcc822e" },
     { "id": "Terminal", "icon": "U+F489", "color": "0xffffffff" },
