@@ -34,8 +34,14 @@ func queryBar() (BarInfo, error) {
 		var out []byte
 		out, err = exec.Command("sketchybar", "--query", "bar").Output()
 		if err == nil {
-			if jsonErr := json.Unmarshal(out, &bar); jsonErr == nil {
-				return bar, nil
+			var parsed BarInfo
+			if jsonErr := json.Unmarshal(out, &parsed); jsonErr == nil {
+				// an empty or partial answer (sketchybar does this while it is
+				// busy) would look like "no items, no position"; never act on it
+				if parsed.Position != "" && parsed.Height > 0 {
+					return parsed, nil
+				}
+				err = fmt.Errorf("sketchybar --query bar: incomplete response")
 			} else {
 				err = fmt.Errorf("sketchybar --query bar: %w", jsonErr)
 			}

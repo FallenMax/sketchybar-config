@@ -13,23 +13,27 @@ const (
 	legacyDataIDs = "data" // state used to be hidden in this item's label
 )
 
-// Layout metrics, in points. The pill is the rounded bracket around one space.
-// Only the items inside the bracket can create the inset, because a bracket's
-// own background padding does not extend what it draws.
+// Layout metrics, in points.
+//
+// SketchyBar ignores icon padding when it lays out an item, and a bracket's own
+// background padding does not extend what it draws. So every horizontal space
+// comes from either icon.width (the box the glyph is centered in) or from label
+// padding on the items at the edges of the pill.
 const (
-	pillInsetX = 10 // border to the first/last content pixel
+	pillInsetX = 10 // border to the first/last content
 	pillInsetY = 1  // free space between bar edge and pill
 	pillBorder = 1
-	iconWidth  = 18
-	iconPadX   = 4 // space between two window icons
-	numberPadX = 4 // space between the space number and the first icon
-	gapBetween = 8 // visible gap between two pills
+	iconWidth  = 20 // icon box; glyphs are centered so this is also the spacing
+	numberPadX = 4  // space between the space number and the first icon
+	gapBetween = 8  // visible gap between two pills
 	gapItemPad = gapBetween / 2
 	numberYOff = -1
+	endPad     = 10 // trailing spacer after the last item
 )
 
 func slotID(spaceID, slot int) string { return fmt.Sprintf("%s%d.%d", itemPrefix, spaceID, slot) }
 func moreID(spaceID int) string       { return fmt.Sprintf("%s%d.more", itemPrefix, spaceID) }
+func endID(spaceID int) string        { return fmt.Sprintf("%s%d.end", itemPrefix, spaceID) }
 func bracketID(spaceID int) string    { return fmt.Sprintf("%s%d", itemPrefix, spaceID) }
 func gapID(spaceID int) string        { return fmt.Sprintf("%s%d.gap", itemPrefix, spaceID) }
 
@@ -45,6 +49,7 @@ func desiredItems(spaces []Space, maxWindows int) []string {
 			names = append(names, slotID(sp.ID, slot))
 		}
 		names = append(names, moreID(sp.ID))
+		names = append(names, endID(sp.ID))
 		names = append(names, bracketID(sp.ID))
 		names = append(names, gapID(sp.ID))
 	}
@@ -56,19 +61,7 @@ func bracketMembers(spaceID, maxWindows int) []string {
 	for slot := 0; slot <= maxWindows; slot++ {
 		members = append(members, slotID(spaceID, slot))
 	}
-	return append(members, moreID(spaceID))
-}
-
-func sameItems(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
+	return append(members, moreID(spaceID), endID(spaceID))
 }
 
 // structureArgs removes every component we own and recreates the bar from
@@ -86,6 +79,7 @@ func structureArgs(existing []string, spaces []Space, maxWindows int) []string {
 			args = append(args, "--add", "item", slotID(sp.ID, slot), "center")
 		}
 		args = append(args, "--add", "item", moreID(sp.ID), "center")
+		args = append(args, "--add", "item", endID(sp.ID), "center")
 		args = append(args, "--add", "bracket", bracketID(sp.ID))
 		args = append(args, bracketMembers(sp.ID, maxWindows)...)
 		args = append(args, "--add", "item", gapID(sp.ID), "center")
@@ -169,11 +163,12 @@ type renderInput struct {
 	spaces  []Space
 	windows map[int]Window
 	bundles map[int]string
-	state   SlotState
+	state   State
+	active  int // space id highlighted as active
 }
 
 // renderArgs produces the item updates and the next slot state.
-func renderArgs(in renderInput) ([]string, SlotState) {
+func renderArgs(in renderInput) ([]string, State) {
 	cfg := in.cfg
 	height := in.display.MenubarHeight
 
@@ -199,13 +194,14 @@ func renderArgs(in renderInput) ([]string, SlotState) {
 		return withAlpha(color, dimAlpha)
 	}
 
-	args := append([]string{}, barArgs(height, in.display.Builtin)...)
-	args = append(args, defaultArgs(height)...)
-	args = append(args, "--animate", "sin", "10")
+	// Only item properties are sent here. Bar properties and item defaults are
+	// applied by the structure setup, because sending them on every update
+	// forces sketchybar to relayout the whole bar and the pills visibly blink.
+	args := []string{"--animate", "sin", "10"}
 
-	nextState := SlotState{}
+	nextState := State{Slots: map[string][]int{}, Active: in.active}
 	for _, sp := range in.spaces {
-		active := sp.IsVisible
+		active := sp.ID == in.active
 		accent := accentFor(active)
 
 		var windows []Window
@@ -225,16 +221,14 @@ func renderArgs(in renderInput) ([]string, SlotState) {
 			windows = append(windows, w)
 		}
 
-		prev := in.state[itoa(sp.ID)]
+		prev := in.state.Slots[itoa(sp.ID)]
 		next := assignSlots(prev, windows, cfg.MaxWindowsPerSpace)
-		nextState[itoa(sp.ID)] = next
+		nextState.Slots[itoa(sp.ID)] = next
 
 		placed := 0
-		lastOccupied := 0
 		for slot := 1; slot <= cfg.MaxWindowsPerSpace; slot++ {
 			if next[slot] != 0 {
 				placed++
-				lastOccupied = slot
 			}
 		}
 		overflow := len(windows) - placed
@@ -271,15 +265,11 @@ func renderArgs(in renderInput) ([]string, SlotState) {
 			if app.Icon != "" {
 				width = iconWidth
 			}
-			rpad := iconPadX
-			if slot == lastOccupied && overflow <= 0 {
-				rpad = pillInsetX
-			}
 			args = append(args, "--set", itemID,
 				"icon="+app.Icon,
 				"icon.width="+itoa(width),
 				"icon.color="+iconColor,
-				"icon.padding_left="+itoa(iconPadX), "icon.padding_right="+itoa(rpad),
+				"icon.padding_left=0", "icon.padding_right=0",
 				"label=", "label.padding_left=0", "label.padding_right=0",
 				"background.color=0x00ffffff", "background.padding_left=0", "background.padding_right=0",
 			)
@@ -291,7 +281,7 @@ func renderArgs(in renderInput) ([]string, SlotState) {
 				"icon=", "icon.width=0", "icon.padding_left=0", "icon.padding_right=0",
 				"label=+"+itoa(overflow),
 				"label.color="+accent,
-				"label.padding_left="+itoa(iconPadX), "label.padding_right="+itoa(pillInsetX),
+				"label.padding_left="+itoa(numberPadX), "label.padding_right=0",
 				"background.color=0x00ffffff", "background.padding_left=0", "background.padding_right=0",
 			)
 		} else {
@@ -301,6 +291,16 @@ func renderArgs(in renderInput) ([]string, SlotState) {
 				"background.color=0x00ffffff", "background.padding_left=0", "background.padding_right=0",
 			)
 		}
+
+		// trailing spacer: label.width is the only reliable way to reserve
+		// horizontal space, icon padding and bracket background padding are
+		// ignored by the layout engine
+		args = append(args, "--set", endID(sp.ID),
+			"icon=", "icon.width=0", "icon.padding_left=0", "icon.padding_right=0",
+			"label=", "label.width="+itoa(endPad),
+			"label.padding_left=0", "label.padding_right=0",
+			"background.color=0x00ffffff", "background.padding_left=0", "background.padding_right=0",
+		)
 
 		// bracket: highlight the active space
 		bracket := []string{"--set", bracketID(sp.ID),
