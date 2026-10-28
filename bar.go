@@ -24,11 +24,12 @@ const (
 	pillInsetY = 1  // free space between bar edge and pill
 	pillBorder = 1
 	iconWidth  = 20 // icon box; glyphs are centered so this is also the spacing
-	numberPadX = 4  // space between the space number and the first icon
+	numberPadX = 7  // space between the space number and the first icon
 	gapBetween = 8  // visible gap between two pills
 	gapItemPad = gapBetween / 2
 	numberYOff = -1
-	endPad     = 10 // trailing spacer after the last item
+	endPadIcon = 5  // trailing spacer after the last window icon
+	endPadText = 12 // trailing spacer after the +N counter
 )
 
 func slotID(spaceID, slot int) string { return fmt.Sprintf("%s%d.%d", itemPrefix, spaceID, slot) }
@@ -295,9 +296,13 @@ func renderArgs(in renderInput) ([]string, State) {
 		// trailing spacer: label.width is the only reliable way to reserve
 		// horizontal space, icon padding and bracket background padding are
 		// ignored by the layout engine
+		endWidth := endPadIcon
+		if overflow > 0 {
+			endWidth = endPadText
+		}
 		args = append(args, "--set", endID(sp.ID),
 			"icon=", "icon.width=0", "icon.padding_left=0", "icon.padding_right=0",
-			"label=", "label.width="+itoa(endPad),
+			"label=", "label.width="+itoa(endWidth),
 			"label.padding_left=0", "label.padding_right=0",
 			"background.color=0x00ffffff", "background.padding_left=0", "background.padding_right=0",
 		)
