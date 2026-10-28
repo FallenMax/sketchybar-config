@@ -2,11 +2,15 @@
   "maxTitleWords": 2,
   "apps": [
     { "id": "Google Chrome", "icon": "U+F02AF", "color": "0xfff1bf47" },
-    { "id": "Safari", "icon": "U+F0584", "color": "0xff4ba0e8" },
+    { "id": "Safari", "icon": "U+F538", "color": "0xff4ba0e8" },
+    { "id": "Dia", "icon": "U+F14E", "color": "0xff7c6cf5" },
     { "id": "Firefox", "icon": "U+F0239", "color": "0xffff6611" },
     { "id": "Visual Studio Code", "icon": "U+F0A1E", "color": "0xff4b9ae9" },
     { "id": "Cursor", "icon": "U+F0A1E", "color": "0xff4b9ae9" },
-    { "id": "Codex", "icon": "U+EC1E", "color": "0xff10a37f" },
+    { "id": "Zed", "icon": "U+F740", "color": "0xff084cdf" },
+    { "id": "Xcode", "icon": "U+F08EA", "color": "0xff1b8bf5" },
+    { "id": "Codex", "icon": "U+FBA7", "color": "0xff10a37f" },
+    { "id": "ChatGPT", "icon": "U+FBA7", "color": "0xff10a37f" },
     { "id": "Claude", "icon": "U+F09D1", "color": "0xffff8a4c" },
     { "id": "Ghostty", "icon": "U+F489", "color": "0xffcc822e" },
     { "id": "Alacritty", "icon": "U+F489", "color": "0xffcc822e" },
@@ -14,8 +18,14 @@
     { "id": "Warp", "icon": "U+F489", "color": "0xff01c1a7" },
     { "id": "Finder", "icon": "U+F0036", "color": "0xff1abffb" },
     { "id": "WeChat", "icon": "U+F0611", "color": "0xff10d962", "hideTitle": true },
+    { "id": "QQ", "icon": "U+F0605", "color": "0xff12b7f5", "hideTitle": true },
+    { "id": "Telegram", "icon": "U+FA00", "color": "0xff2aabee" },
+    { "id": "Notes", "icon": "U+EB26", "color": "0xffffd60a" },
     { "id": "Slack", "icon": "U+F04B1", "color": "0xffe01e5a" },
-    { "id": "zoom.us", "icon": "U+F03D", "color": "0xff1793ff" },
-    { "id": "Spotify", "icon": "U+F04C7", "color": "0xff65d56e" }
+    { "id": "Spotify", "icon": "U+F04C7", "color": "0xff65d56e", "hideTitle": true },
+    { "id": "TencentMeeting", "icon": "U+FA66", "color": "0xff2d8cff", "hideTitle": true },
+    { "id": "zoom.us", "icon": "U+FA66", "color": "0xff2d8cff", "hideTitle": true },
+    { "id": "Parallels Desktop", "icon": "U+F05B3", "color": "0xff8b5cf6" },
+    { "id": "*", "icon": "U+EB7F", "color": "0xff9ca3af" }
   ]
 }

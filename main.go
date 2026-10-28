@@ -16,8 +16,10 @@ import (
 
 const displayCacheFile = "/tmp/sketchybar-display-builtin"
 
-/** detectAndCacheDisplay uses swift to call CoreGraphics and caches
-the result in a temp file. Only called during setup or display change events. */
+/*
+* detectAndCacheDisplay uses swift to call CoreGraphics and caches
+the result in a temp file. Only called during setup or display change events.
+*/
 func detectAndCacheDisplay() bool {
 	out, err := exec.Command("swift", "-e",
 		`import CoreGraphics; print(CGDisplayIsBuiltin(CGMainDisplayID()) != 0 ? "1" : "0")`).Output()
@@ -43,9 +45,10 @@ func isMainDisplayBuiltin() bool {
 }
 
 const (
-	menubarHeight   = 30
-	numSpaces       = 5
-	windowsPerSpace = 5
+	menubarHeight = 30
+	numSpaces     = 5
+	// slot 0 shows the space number, the remaining slots hold window icons
+	windowsPerSpace = 6
 )
 
 //-------------- Config (loaded from ~/.config/sketchybar/config.json) --------------
@@ -66,12 +69,13 @@ func loadConfig() Config {
 	home, _ := os.UserHomeDir()
 	data, err := os.ReadFile(home + "/.config/sketchybar/config.json")
 	if err != nil {
-		return defaultConfig()
+		fmt.Fprintf(os.Stderr, "warning: cannot read config.json: %v\n", err)
+		return Config{MaxTitleWords: 2}
 	}
 	var cfg Config
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: invalid config.json: %v\n", err)
-		return defaultConfig()
+		return Config{MaxTitleWords: 2}
 	}
 	if cfg.MaxTitleWords <= 0 {
 		cfg.MaxTitleWords = 2
@@ -83,28 +87,6 @@ func loadConfig() Config {
 		}
 	}
 	return cfg
-}
-
-func defaultConfig() Config {
-	return Config{
-		MaxTitleWords: 2,
-		Apps: []AppConfig{
-			{ID: "Google Chrome", Icon: "\U000F02AF", Color: "0xfff1bf47"},
-			{ID: "Safari", Icon: "\U000F0584", Color: "0xff4ba0e8"},
-			{ID: "Firefox", Icon: "\U000F0239", Color: "0xffff6611"},
-			{ID: "Visual Studio Code", Icon: "\U000F0A1E", Color: "0xff4b9ae9"},
-			{ID: "Cursor", Icon: "\U000F0A1E", Color: "0xff4b9ae9"},
-			{ID: "Ghostty", Icon: "\uF489", Color: "0xffcc822e"},
-			{ID: "Alacritty", Icon: "\uF489", Color: "0xffcc822e"},
-			{ID: "Terminal", Icon: "\uF489", Color: "0xffffffff"},
-			{ID: "Warp", Icon: "\uF489", Color: "0xff01c1a7"},
-			{ID: "Finder", Icon: "\U000F0036", Color: "0xff1abffb"},
-			{ID: "WeChat", Icon: "\U000F0611", Color: "0xff10d962", HideTitle: true},
-			{ID: "Slack", Icon: "\U000F04B1", Color: "0xffe01e5a"},
-			{ID: "zoom.us", Icon: "\U000F0568", Color: "0xff2d8cff"},
-			{ID: "Spotify", Icon: "\U000F04C7", Color: "0xff65d56e"},
-		},
-	}
 }
 
 // parseIcon converts "U+F02AF" hex notation to the actual unicode rune.
@@ -244,9 +226,11 @@ func isCJK(r rune) bool {
 		unicode.Is(unicode.Hangul, r)
 }
 
-/** cleanTitle extracts a readable short title from a window title.
+/*
+* cleanTitle extracts a readable short title from a window title.
 Strips app name suffixes, splits on non-letter boundaries, keeps first N words.
-CJK characters: every 2 chars = 1 word. */
+CJK characters: every 2 chars = 1 word.
+*/
 func cleanTitle(raw string, maxWords int) string {
 	for _, sep := range []string{" — ", " - ", " | "} {
 		if i := strings.Index(raw, sep); i > 0 {
@@ -366,7 +350,7 @@ func initialize(builtinDisplay bool) error {
 			"margin=0", "y_offset=2", "corner_radius=0",
 			"border_width=0", "blur_radius=0",
 			"padding_left=0", "padding_right=0",
-			"display=main", "topmost=window", "sticky=on", "font_smoothing=on",
+			"display=main", "topmost=on", "sticky=on", "font_smoothing=on",
 		)
 	}
 
@@ -435,7 +419,7 @@ func update(cfg *Config, spaces []Space, windows []Window, bundleNames map[int]s
 		windowsByID[w.ID] = w
 	}
 
-	var args []string
+	var args = []string{"--animate", "sin", "10"}
 	push := func(a ...string) { args = append(args, a...) }
 
 	data := decodeSlots(slotsData)
