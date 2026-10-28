@@ -1,5 +1,9 @@
 {
-  "maxTitleWords": 2,
+  "colors": {
+    "active": "0xff60a5fa",
+    "inactive": "0xff9ca3af"
+  },
+  "maxWindowsPerSpace": 6,
   "apps": [
     { "id": "Google Chrome", "icon": "U+F02AF", "color": "0xfff1bf47" },
     { "id": "Safari", "icon": "U+F538", "color": "0xff4ba0e8" },
@@ -17,14 +21,14 @@
     { "id": "Terminal", "icon": "U+F489", "color": "0xffffffff" },
     { "id": "Warp", "icon": "U+F489", "color": "0xff01c1a7" },
     { "id": "Finder", "icon": "U+F0036", "color": "0xff1abffb" },
-    { "id": "WeChat", "icon": "U+F0611", "color": "0xff10d962", "hideTitle": true },
-    { "id": "QQ", "icon": "U+F0605", "color": "0xff12b7f5", "hideTitle": true },
+    { "id": "WeChat", "icon": "U+F0611", "color": "0xff10d962" },
+    { "id": "QQ", "icon": "U+F0605", "color": "0xff12b7f5" },
     { "id": "Telegram", "icon": "U+FA00", "color": "0xff2aabee" },
     { "id": "Notes", "icon": "U+EB26", "color": "0xffffd60a" },
     { "id": "Slack", "icon": "U+F04B1", "color": "0xffe01e5a" },
-    { "id": "Spotify", "icon": "U+F04C7", "color": "0xff65d56e", "hideTitle": true },
-    { "id": "TencentMeeting", "icon": "U+FA66", "color": "0xff2d8cff", "hideTitle": true },
-    { "id": "zoom.us", "icon": "U+FA66", "color": "0xff2d8cff", "hideTitle": true },
+    { "id": "Spotify", "icon": "U+F04C7", "color": "0xff65d56e" },
+    { "id": "TencentMeeting", "icon": "U+FA66", "color": "0xff2d8cff" },
+    { "id": "zoom.us", "icon": "U+FA66", "color": "0xff2d8cff" },
     { "id": "Parallels Desktop", "icon": "U+F05B3", "color": "0xff8b5cf6" },
     { "id": "*", "icon": "U+EB7F", "color": "0xff9ca3af" }
   ]

@@ -1,19 +1,22 @@
 #!/usr/bin/env sh
+# sketchybar-config: entry point, executed by sketchybar on every start/reload.
 
-BINARY=$HOME/.config/sketchybar/update_sketchybar
+BINARY="$HOME/.config/sketchybar/update_sketchybar"
 
-# Wait for yabai in background, then register signals and render bar.
-# Handles any startup order between sketchybar and yabai.
+# yabai and sketchybar can start in any order. Wait for yabai, then connect the
+# signals and draw the bar. Both steps are also re-run from ~/.yabairc whenever
+# yabai itself restarts.
 (
   n=0
   while ! yabai -m query --spaces >/dev/null 2>&1; do
     n=$((n + 1))
-    if [ $n -ge 30 ]; then
-      echo "sketchybarrc: timed out waiting for yabai" >&2
+    if [ "$n" -ge 30 ]; then
+      echo "sketchybarrc: yabai is not responding, the bar stays empty." >&2
+      echo "sketchybarrc: run \`make doctor\` in the sketchybar-config checkout." >&2
       exit 1
     fi
     sleep 2
   done
-  $BINARY setup
-  $BINARY
+  "$BINARY" setup
+  "$BINARY"
 ) &

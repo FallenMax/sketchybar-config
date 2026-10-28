@@ -1,3 +1,6 @@
 update_sketchybar
 *.lock
 learn
+
+# local planning docs
+plans/
