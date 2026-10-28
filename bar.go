@@ -13,6 +13,22 @@ const (
 	legacyDataIDs = "data" // state used to be hidden in this item's label
 )
 
+// Layout metrics, in points. The pill is the rounded bracket around one space:
+// its border sits pillInsetX away from the content on the sides and leaves
+// pillInsetY of the bar free above and below.
+const (
+	pillInsetX = 5 // border distance to the first/last item
+	pillInsetY = 1 // free space between bar edge and pill
+	pillBorder = 1
+	iconWidth  = 18
+	iconPadX   = 3 // horizontal space around a window icon
+	numberPadX = 3 // horizontal space around the space number
+	gapBetween = 6 // visible gap between two pills
+	gapItemPad = pillInsetX + gapBetween/2
+	itemHeight = 14
+	numberYOff = -1
+)
+
 func slotID(spaceID, slot int) string { return fmt.Sprintf("%s%d.%d", itemPrefix, spaceID, slot) }
 func moreID(spaceID int) string       { return fmt.Sprintf("%s%d.more", itemPrefix, spaceID) }
 func bracketID(spaceID int) string    { return fmt.Sprintf("%s%d", itemPrefix, spaceID) }
@@ -107,11 +123,11 @@ func defaultArgs(h int) []string {
 		"label.font=Helvetica:Normal:14.0",
 		"label.color=0xccffffff",
 		"label.padding_left=0", "label.padding_right=0",
-		"label.y_offset=-1",
+		"label.y_offset=" + itoa(numberYOff),
 		"background.drawing=on", "background.corner_radius=2",
 		"background.padding_left=0", "background.padding_right=0",
 		"background.color=0x00ffffff",
-		"background.height=" + itoa(maxInt(h-6, 10)),
+		"background.height=" + itoa(maxInt(h-8, 10)),
 	}
 }
 
@@ -215,25 +231,19 @@ func renderArgs(in renderInput) ([]string, SlotState) {
 		nextState[itoa(sp.ID)] = next
 
 		placed := 0
-		lastOccupied := 0
 		for slot := 1; slot <= cfg.MaxWindowsPerSpace; slot++ {
 			if next[slot] != 0 {
 				placed++
-				lastOccupied = slot
 			}
 		}
 		overflow := len(windows) - placed
 
 		// slot 0: space number
-		numberRpad := "4"
-		if placed == 0 && overflow <= 0 {
-			numberRpad = "8"
-		}
 		args = append(args, "--set", slotID(sp.ID, 0),
 			"icon=", "icon.width=0", "icon.padding_left=0", "icon.padding_right=0",
 			"label="+itoa(sp.Index),
 			"label.color="+accent,
-			"label.padding_left=8", "label.padding_right="+numberRpad,
+			"label.padding_left="+itoa(numberPadX), "label.padding_right="+itoa(numberPadX),
 			"background.color=0x00ffffff", "background.padding_left=0", "background.padding_right=0",
 		)
 
@@ -252,19 +262,15 @@ func renderArgs(in renderInput) ([]string, SlotState) {
 			}
 			app := findApp(cfg, w.App, in.bundles[w.PID])
 			iconColor := iconColorFor(app, active)
-			iconWidth := 0
+			width := 0
 			if app.Icon != "" {
-				iconWidth = 20
-			}
-			rpad := "2"
-			if slot == lastOccupied && overflow <= 0 {
-				rpad = "6"
+				width = iconWidth
 			}
 			args = append(args, "--set", itemID,
 				"icon="+app.Icon,
-				"icon.width="+itoa(iconWidth),
+				"icon.width="+itoa(width),
 				"icon.color="+iconColor,
-				"icon.padding_left=2", "icon.padding_right="+rpad,
+				"icon.padding_left="+itoa(iconPadX), "icon.padding_right="+itoa(iconPadX),
 				"label=", "label.padding_left=0", "label.padding_right=0",
 				"background.color=0x00ffffff", "background.padding_left=0", "background.padding_right=0",
 			)
@@ -276,7 +282,7 @@ func renderArgs(in renderInput) ([]string, SlotState) {
 				"icon=", "icon.width=0", "icon.padding_left=0", "icon.padding_right=0",
 				"label=+"+itoa(overflow),
 				"label.color="+accent,
-				"label.padding_left=0", "label.padding_right=6",
+				"label.padding_left="+itoa(iconPadX), "label.padding_right="+itoa(numberPadX),
 				"background.color=0x00ffffff", "background.padding_left=0", "background.padding_right=0",
 			)
 		} else {
@@ -289,14 +295,15 @@ func renderArgs(in renderInput) ([]string, SlotState) {
 
 		// bracket: highlight the active space
 		bracket := []string{"--set", bracketID(sp.ID),
-			"background.height=" + itoa(maxInt(height-4, 12)),
+			"background.height=" + itoa(maxInt(height-2*pillInsetY, 12)),
 			"background.corner_radius=9999",
-			"background.padding_left=0", "background.padding_right=0",
+			"background.padding_left=" + itoa(pillInsetX),
+			"background.padding_right=" + itoa(pillInsetX),
 		}
 		if active {
 			bracket = append(bracket,
 				"background.color=0x99000000",
-				"background.border_width=2",
+				"background.border_width="+itoa(pillBorder),
 				"background.border_color="+cfg.Colors.Border,
 			)
 		} else {
@@ -311,7 +318,7 @@ func renderArgs(in renderInput) ([]string, SlotState) {
 		// gap between pills
 		args = append(args, "--set", gapID(sp.ID),
 			"icon=", "icon.width=0", "icon.padding_left=0", "icon.padding_right=0",
-			"label=", "label.padding_left=3", "label.padding_right=3",
+			"label=", "label.padding_left="+itoa(gapItemPad), "label.padding_right="+itoa(gapItemPad),
 			"background.color=0x00ffffff", "background.padding_left=0", "background.padding_right=0",
 		)
 	}
