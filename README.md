@@ -9,9 +9,8 @@ number and one icon per window, with per-app colors and an overflow counter.
 ## What it shows
 
 - one pill per space on the main display, space number first
-- one icon per window, colored per app; apps without a configured color use the
-  active/inactive tint from `config.json`
-- the active space gets a tinted border and brighter text
+- one icon per window; icons are either all one color or colored per app
+- the active space gets a colored border and a brighter space number
 - windows that do not fit show as `+N`
 - icons only, no window titles
 
@@ -97,8 +96,8 @@ or after `make reload`. Spaces created through Mission Control arrive through th
 ```json
 {
   "colors": {
-    "active": "0xff60a5fa",
-    "inactive": "0xff9ca3af"
+    "border": "0xff60a5fa",
+    "icon": "0xff60a5fa"
   },
   "maxWindowsPerSpace": 6,
   "apps": [
@@ -109,16 +108,21 @@ or after `make reload`. Spaces created through Mission Control arrive through th
 }
 ```
 
-- `colors.active` — active space border, space number, and the icon color of apps
-  without their own `color`
-- `colors.inactive` — same, for inactive spaces
+Colors are two independent knobs, both blue by default so the whole bar looks
+consistent out of the box:
+
+- `colors.border` — pill border, space number and overflow counter
+- `colors.icon` — every window icon: either one color, or the string
+  `"multicolor"` to use the per-app `color` from the app list
+- spaces that are not active dim both colors, so the active space still stands out
 - `maxWindowsPerSpace` — how many window icons fit in a pill; the rest become `+N`
 - `apps[].id` — the `.app` bundle name (e.g. `"Finder"` from `Finder.app`), which is
   language independent, unlike the localized display name. Find it in `/Applications/`
   or with `ps -e -o comm=`
 - `apps[].icon` — Nerd Font codepoint (`"U+F02AF"`) or a raw character. Check that the
   codepoint exists in your installed font, otherwise it renders blank
-- `apps[].color` — icon color. Optional; when omitted the space tint is used
+- `apps[].color` — icon color, only used when `colors.icon` is `"multicolor"`.
+  Optional; apps without a color fall back to `colors.border`
 - `"*"` — catch-all for apps that are not listed, so they still get an icon
 
 Icons can be looked up at [nerdfonts.com/cheat-sheet](https://www.nerdfonts.com/cheat-sheet).

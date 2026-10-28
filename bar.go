@@ -161,11 +161,27 @@ type renderInput struct {
 func renderArgs(in renderInput) ([]string, SlotState) {
 	cfg := in.cfg
 	height := in.display.MenubarHeight
-	pillTintFor := func(active bool) string {
+
+	// accent color for the pill border, the space number and the overflow count
+	accentFor := func(active bool) string {
 		if active {
-			return cfg.Colors.Active
+			return cfg.Colors.Border
 		}
-		return cfg.Colors.Inactive
+		return withAlpha(cfg.Colors.Border, dimAlpha)
+	}
+	// icon color: one color for everything, or per-app colors in multicolor mode
+	iconColorFor := func(app *AppConfig, active bool) string {
+		color := cfg.Colors.Icon
+		if color == multicolor {
+			color = app.Color
+			if color == "" {
+				color = cfg.Colors.Border
+			}
+		}
+		if active {
+			return color
+		}
+		return withAlpha(color, dimAlpha)
 	}
 
 	args := append([]string{}, barArgs(height, in.display.Builtin)...)
@@ -175,7 +191,7 @@ func renderArgs(in renderInput) ([]string, SlotState) {
 	nextState := SlotState{}
 	for _, sp := range in.spaces {
 		active := sp.IsVisible
-		tint := pillTintFor(active)
+		accent := accentFor(active)
 
 		var windows []Window
 		seen := make(map[int]bool, len(sp.Windows))
@@ -216,7 +232,7 @@ func renderArgs(in renderInput) ([]string, SlotState) {
 		args = append(args, "--set", slotID(sp.ID, 0),
 			"icon=", "icon.width=0", "icon.padding_left=0", "icon.padding_right=0",
 			"label="+itoa(sp.Index),
-			"label.color="+tint,
+			"label.color="+accent,
 			"label.padding_left=8", "label.padding_right="+numberRpad,
 			"background.color=0x00ffffff", "background.padding_left=0", "background.padding_right=0",
 		)
@@ -235,10 +251,7 @@ func renderArgs(in renderInput) ([]string, SlotState) {
 				continue
 			}
 			app := findApp(cfg, w.App, in.bundles[w.PID])
-			iconColor := app.Color
-			if iconColor == "" {
-				iconColor = tint
-			}
+			iconColor := iconColorFor(app, active)
 			iconWidth := 0
 			if app.Icon != "" {
 				iconWidth = 20
@@ -262,7 +275,7 @@ func renderArgs(in renderInput) ([]string, SlotState) {
 			args = append(args, "--set", moreID(sp.ID),
 				"icon=", "icon.width=0", "icon.padding_left=0", "icon.padding_right=0",
 				"label=+"+itoa(overflow),
-				"label.color="+tint,
+				"label.color="+accent,
 				"label.padding_left=0", "label.padding_right=6",
 				"background.color=0x00ffffff", "background.padding_left=0", "background.padding_right=0",
 			)
@@ -284,7 +297,7 @@ func renderArgs(in renderInput) ([]string, SlotState) {
 			bracket = append(bracket,
 				"background.color=0x99000000",
 				"background.border_width=2",
-				"background.border_color="+cfg.Colors.Active,
+				"background.border_color="+cfg.Colors.Border,
 			)
 		} else {
 			bracket = append(bracket,

@@ -8,12 +8,27 @@ import (
 	"strings"
 )
 
-// Colors drive every state-dependent color of the bar. App specific colors are
-// configured per app (see AppConfig.Color).
+// Colors are two independent knobs:
+//
+//	border: the pill border, the space number and the overflow counter
+//	icon:   every window icon, either one color or "multicolor" to use the
+//	        per-app colors from apps[].color
+//
+// Inactive spaces simply dim both, so a single color still gives a consistent
+// look while the active space stands out.
 type Colors struct {
-	Active   string `json:"active"`
-	Inactive string `json:"inactive"`
+	Border string `json:"border"`
+	Icon   string `json:"icon"`
 }
+
+// multicolor tells the renderer to take the icon color from the app list.
+const multicolor = "multicolor"
+
+const (
+	defaultColor = "0xff60a5fa"
+	// alpha applied to border, number and icons of spaces that are not active
+	dimAlpha = 0x88
+)
 
 type AppConfig struct {
 	ID    string `json:"id"`
@@ -36,7 +51,7 @@ func configPath() string { return installDir() + "/config.json" }
 
 func defaultConfig() Config {
 	return Config{
-		Colors:             Colors{Active: "0xff60a5fa", Inactive: "0xff9ca3af"},
+		Colors:             Colors{Border: defaultColor, Icon: defaultColor},
 		MaxWindowsPerSpace: 6,
 	}
 }
@@ -60,16 +75,49 @@ func loadConfig() Config {
 	if cfg.MaxWindowsPerSpace > 20 {
 		cfg.MaxWindowsPerSpace = 20
 	}
-	if cfg.Colors.Active == "" {
-		cfg.Colors.Active = "0xff60a5fa"
-	}
-	if cfg.Colors.Inactive == "" {
-		cfg.Colors.Inactive = "0xff9ca3af"
-	}
+	cfg.Colors.Border = normalizeColor(cfg.Colors.Border, defaultColor)
+	cfg.Colors.Icon = normalizeColor(cfg.Colors.Icon, defaultColor)
 	for i := range cfg.Apps {
 		cfg.Apps[i].Icon = parseIcon(cfg.Apps[i].Icon)
+		if cfg.Apps[i].Color != "" {
+			cfg.Apps[i].Color = normalizeColor(cfg.Apps[i].Color, cfg.Colors.Icon)
+		}
 	}
 	return cfg
+}
+
+// normalizeColor keeps valid 0xAARRGGBB values and replaces everything else
+// with the fallback, so a typo cannot make the bar invisible.
+func normalizeColor(value, fallback string) string {
+	if value == multicolor {
+		return multicolor
+	}
+	if _, ok := parseColor(value); ok {
+		return value
+	}
+	return fallback
+}
+
+func parseColor(value string) (uint32, bool) {
+	hex := strings.TrimPrefix(strings.TrimPrefix(value, "0x"), "0X")
+	if len(hex) != 8 {
+		return 0, false
+	}
+	v, err := strconv.ParseUint(hex, 16, 32)
+	if err != nil {
+		return 0, false
+	}
+	return uint32(v), true
+}
+
+// withAlpha replaces the alpha channel, used to dim inactive spaces.
+func withAlpha(value string, alpha uint8) string {
+	v, ok := parseColor(value)
+	if !ok {
+		return value
+	}
+	v = (v & 0x00ffffff) | uint32(alpha)<<24
+	return fmt.Sprintf("0x%08x", v)
 }
 
 // parseIcon converts "U+F02AF" hex notation to the actual unicode rune.

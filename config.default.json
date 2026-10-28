@@ -1,7 +1,7 @@
 {
   "colors": {
-    "active": "0xff60a5fa",
-    "inactive": "0xff9ca3af"
+    "border": "0xff60a5fa",
+    "icon": "0xff60a5fa"
   },
   "maxWindowsPerSpace": 6,
   "apps": [

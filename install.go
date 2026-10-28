@@ -228,6 +228,10 @@ func doctor() {
 	add("config.json", jsonErr == nil, describeErr(jsonErr, fmt.Sprintf("%d apps configured, %d with icons", len(cfg.Apps), countIcons(cfg.Apps))),
 		"fix the JSON in "+configPath())
 
+	badColors := invalidColors(cfg)
+	add("color values", len(badColors) == 0, describeErr(nil, fmt.Sprintf("border=%s icon=%s", cfg.Colors.Border, cfg.Colors.Icon)),
+		"these must be 0xAARRGGBB (or \"multicolor\" for icon): "+strings.Join(badColors, ", "))
+
 	hookPresent := false
 	if data, err := os.ReadFile(yabaircPath()); err == nil {
 		hookPresent = strings.Contains(string(data), hookLine)
@@ -294,6 +298,24 @@ func doctor() {
 	} else {
 		fmt.Printf("%d issue(s) left. See README for the full setup, or run `make install` again.\n", failed)
 	}
+}
+
+// invalidColors lists color fields that are neither 0xAARRGGBB nor the
+// multicolor keyword, and would silently fall back to the default.
+func invalidColors(cfg Config) []string {
+	var bad []string
+	if cfg.Colors.Border != "" && normalizeColor(cfg.Colors.Border, "") == "" {
+		bad = append(bad, "colors.border")
+	}
+	if cfg.Colors.Icon != "" && normalizeColor(cfg.Colors.Icon, "") == "" {
+		bad = append(bad, "colors.icon")
+	}
+	for _, app := range cfg.Apps {
+		if app.Color != "" && normalizeColor(app.Color, "") == "" {
+			bad = append(bad, "apps["+app.ID+"].color")
+		}
+	}
+	return bad
 }
 
 func describeErr(err error, ok string) string {
