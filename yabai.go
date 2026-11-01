@@ -27,14 +27,20 @@ type Window struct {
 	IsVisible   bool   `json:"is-visible"`
 	IsMinimized bool   `json:"is-minimized"`
 	IsHidden    bool   `json:"is-hidden"`
+	// HasAXReference is false for windows the app has already closed but yabai
+	// still lists; those are not on screen on any space.
+	HasAXReference bool `json:"has-ax-reference"`
 }
 
 // shownOnSpace reports whether the icon for this window belongs on the bar.
-// yabai reports is-visible=false for every window on a hidden space, so on the
-// active space it is the exact "is this window really on screen" signal, while
-// on the other spaces only the window's own state can be judged.
+//
+// yabai reports is-visible=false for every window on a hidden space, so it is
+// only meaningful for the space that is currently shown. The window's own state
+// (an AX reference exists, not minimized, app not hidden) is what can be judged
+// everywhere: windows an app closed stay in yabai's list without an AX
+// reference, and the system flags minimized/hidden windows explicitly.
 func shownOnSpace(w Window, spaceVisible bool) bool {
-	if w.IsMinimized || w.IsHidden {
+	if !w.HasAXReference || w.IsMinimized || w.IsHidden {
 		return false
 	}
 	if spaceVisible {

@@ -52,6 +52,18 @@ cat ~/.cache/sketchybar-config/slots.json
 - `--bar margin=N` 把 bar 窗口缩窄并居中（2560 宽 + margin 300 → 1960 宽、x=300）；`--bar position/y_offset/topmost/height` 可热改，不需要重启进程。
 - 菜单栏高度与是否内建屏用一次 `swift -e`（`NSStatusBar.system.thickness` + `CGDisplayIsBuiltin`）取得，本机 22。
 - yabai 7.1：`space_created` 对 `yabai -m space --create` 不触发；`mission_control_exit` 可用于 UI 路径。
-- yabai 的窗口可见性：`is-visible` 对隐藏空间里的窗口一律为 false，所以它只有在"该空间当前可见"时才等价于"窗口真的在屏幕上"；`is-minimized` 只反映最小化，被应用自己藏起来的窗口可能两者都为 false。验证可见性用 `open -na Safari` → `yabai -m window <id> --minimize` → `yabai -m window --deminimize <id>` 观察 icon 增减（`verify` 的 window icons 一项会在每次运行时兜住）。
+- yabai 的窗口状态实测（同一个窗口的四种状态）：
+
+```
+状态                        is-visible  is-minimized  is-hidden  has-ax-reference
+当前空间、真的在屏幕上        true        false         false      true
+其他空间                      false       false         false      true
+最小化                        false       true          false      true
+app 被隐藏（Cmd+H）           false       false         true       true
+app 已关闭窗口但 yabai 还列着  false       false         false      false
+```
+
+  所以"窗口是否真的存在"看 `has-ax-reference`，"被藏起来"看 `is-minimized`/`is-hidden`，`is-visible` 只在当前空间可用。这也解释了一个坑：Spotify / 微信这类窗口在 yabai 里长期存在但 `has-ax-reference=false`，它们不是最小化，而是 app 已经不再持有该窗口。
+- 验证可见性/最小化用 `open -na Safari` → `yabai -m window <id> --minimize` / `yabai -m window --deminimize <id>` 观察 icon 增减；隐藏 app 用 AX 写 `AXHidden`（`AXUIElementSetAttributeValue(app, "AXHidden", true)`，本机终端已有辅助功能权限）。`verify` 的 window icons 一项每次跑都会兜住这条规则。
 - `yabai -m config --space N bottom_padding` 可读可写，用于底部 bar 腾出条带；原值需自行记录还原。
 - 日志：`$(brew --prefix)/var/log/sketchybar/sketchybar.{out,err}.log`；signal action 的输出去 `/tmp/yabai_$USER.out.log`，该文件被删除后 yabai 仍写旧 inode，要看新日志需重启 yabai。
