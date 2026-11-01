@@ -52,5 +52,6 @@ cat ~/.cache/sketchybar-config/slots.json
 - `--bar margin=N` 把 bar 窗口缩窄并居中（2560 宽 + margin 300 → 1960 宽、x=300）；`--bar position/y_offset/topmost/height` 可热改，不需要重启进程。
 - 菜单栏高度与是否内建屏用一次 `swift -e`（`NSStatusBar.system.thickness` + `CGDisplayIsBuiltin`）取得，本机 22。
 - yabai 7.1：`space_created` 对 `yabai -m space --create` 不触发；`mission_control_exit` 可用于 UI 路径。
+- yabai 的窗口可见性：`is-visible` 对隐藏空间里的窗口一律为 false，所以它只有在"该空间当前可见"时才等价于"窗口真的在屏幕上"；`is-minimized` 只反映最小化，被应用自己藏起来的窗口可能两者都为 false。验证可见性用 `open -na Safari` → `yabai -m window <id> --minimize` → `yabai -m window --deminimize <id>` 观察 icon 增减（`verify` 的 window icons 一项会在每次运行时兜住）。
 - `yabai -m config --space N bottom_padding` 可读可写，用于底部 bar 腾出条带；原值需自行记录还原。
 - 日志：`$(brew --prefix)/var/log/sketchybar/sketchybar.{out,err}.log`；signal action 的输出去 `/tmp/yabai_$USER.out.log`，该文件被删除后 yabai 仍写旧 inode，要看新日志需重启 yabai。

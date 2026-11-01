@@ -9,7 +9,9 @@ number and one icon per window, with per-app colors and an overflow counter.
 ## What it shows
 
 - one pill per space on the main display, space number first
-- one icon per window; icons are either all one color or colored per app
+- one icon per window that is actually on screen: on the current space windows that
+  are minimized or hidden by the system are skipped, on the other spaces windows are
+  shown unless they are minimized or hidden; icons are either all one color or colored per app
 - the active space gets a colored border and a brighter space number
 - windows that do not fit show as `+N`
 - icons only, no window titles

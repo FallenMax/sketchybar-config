@@ -20,10 +20,27 @@ type Space struct {
 }
 
 type Window struct {
-	ID    int    `json:"id"`
-	PID   int    `json:"pid"`
-	App   string `json:"app"`
-	Title string `json:"title"`
+	ID          int    `json:"id"`
+	PID         int    `json:"pid"`
+	App         string `json:"app"`
+	Title       string `json:"title"`
+	IsVisible   bool   `json:"is-visible"`
+	IsMinimized bool   `json:"is-minimized"`
+	IsHidden    bool   `json:"is-hidden"`
+}
+
+// shownOnSpace reports whether the icon for this window belongs on the bar.
+// yabai reports is-visible=false for every window on a hidden space, so on the
+// active space it is the exact "is this window really on screen" signal, while
+// on the other spaces only the window's own state can be judged.
+func shownOnSpace(w Window, spaceVisible bool) bool {
+	if w.IsMinimized || w.IsHidden {
+		return false
+	}
+	if spaceVisible {
+		return w.IsVisible
+	}
+	return true
 }
 
 type Frame struct {

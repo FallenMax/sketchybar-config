@@ -27,8 +27,10 @@ const (
 	// a pill covers at least this fraction of its pixels in every frame, so a
 	// blank frame (the "pill disappears for a moment" regression) is caught
 	frameCoverageMin = 0.6
-	// left and right ink insets may differ by at most this many points
-	insetTolerance = 2.5
+	// the right inset is measured to the ink of the last glyph, so it can only
+	// be bounded: never tighter than the left side, and at most one glyph worth
+	// of slack wider
+	insetSlackMax = 8.0
 )
 
 func verify() {
@@ -93,7 +95,43 @@ func verify() {
 	}
 	add("bar structure", structureOK, "%d live items, %d expected", len(live), len(desired))
 
-	// 3. the pills own the inset they claim on both sides
+	// 3. only windows that are really on screen get an icon on the active space
+	windows, windowsErr := queryWindows()
+	bundles := resolveBundleNames()
+	activeID := activeSpace(spaces, 0)
+	expectedIcons, activeSpaceVisible := 0, false
+	if windowsErr == nil {
+		for _, sp := range spaces {
+			if sp.ID != activeID {
+				continue
+			}
+			activeSpaceVisible = sp.IsVisible
+			seen := map[int]bool{}
+			for _, wid := range sp.Windows {
+				if seen[wid] {
+					continue
+				}
+				seen[wid] = true
+				w, ok := windowByID(windows, wid)
+				if !ok || findApp(&cfg, w.App, bundles[w.PID]) == nil || !shownOnSpace(w, sp.IsVisible) {
+					continue
+				}
+				expectedIcons++
+			}
+		}
+	}
+	drawnIcons, iconErr := countDrawnIcons(activeID, cfg.MaxWindowsPerSpace)
+	if iconErr != nil {
+		windowsErr = iconErr
+	}
+	wantIcons := expectedIcons
+	if wantIcons > cfg.MaxWindowsPerSpace {
+		wantIcons = cfg.MaxWindowsPerSpace
+	}
+	add("window icons", windowsErr == nil && drawnIcons == wantIcons,
+		"%d icons drawn, %d windows on screen (space visible=%v)", drawnIcons, expectedIcons, activeSpaceVisible)
+
+	// 4. the pills own the inset they claim on both sides
 	// the bar animates in after being shown or reconfigured, so give it time to
 	// settle before treating a frame as the baseline
 	runSketchybar([]string{"--bar", "hidden=off"})
@@ -140,9 +178,9 @@ func verify() {
 	}
 	mask, leftInset, rightInset, insetsOK := measurePill(shown, hidden, pill, display, scale)
 	add("pill insets", insetsOK,
-		"left %.1fpt right %.1fpt (tolerance %.1fpt)", leftInset, rightInset, insetTolerance)
+		"left %.1fpt right %.1fpt (allowed %.1f..%.1f)", leftInset, rightInset, leftInset-1, leftInset+insetSlackMax)
 
-	// 4. a render never blanks the pills
+	// 5. a render never blanks the pills
 	if len(mask) == 0 {
 		add("no blank frame while rendering", false, "no pill pixels found")
 	} else {
@@ -165,7 +203,7 @@ func verify() {
 		}
 	}
 
-	// 5. invalid colors fall back instead of rendering nothing
+	// 6. invalid colors fall back instead of rendering nothing
 	fallbackOK := normalizeColor("0xzz", defaultColor) == defaultColor && normalizeColor(multicolor, defaultColor) == multicolor
 	add("invalid color falls back", fallbackOK, "%s / %s", normalizeColor("0xzz", defaultColor), multicolor)
 
@@ -190,6 +228,38 @@ func report(checks []verifyCheck) {
 		os.Exit(1)
 	}
 	fmt.Println("all checks passed")
+}
+
+func windowByID(windows []Window, id int) (Window, bool) {
+	for _, w := range windows {
+		if w.ID == id {
+			return w, true
+		}
+	}
+	return Window{}, false
+}
+
+// countDrawnIcons counts the window slots that currently show an icon.
+func countDrawnIcons(spaceID, maxWindows int) (int, error) {
+	count := 0
+	for slot := 1; slot <= maxWindows; slot++ {
+		out, err := exec.Command("sketchybar", "--query", slotID(spaceID, slot)).Output()
+		if err != nil {
+			return 0, err
+		}
+		var item struct {
+			Icon struct {
+				Value string `json:"value"`
+			} `json:"icon"`
+		}
+		if err := json.Unmarshal(out, &item); err != nil {
+			return 0, err
+		}
+		if item.Icon.Value != "" {
+			count++
+		}
+	}
+	return count, nil
 }
 
 func captureScreen(path string) error {
@@ -291,7 +361,7 @@ func measurePill(shown, hidden image.Image, pill bounds, display DisplayInfo, sc
 	}
 	left := (float64(inkMin) - float64(x0)) / scale
 	right := (float64(x1) - float64(inkMax)) / scale
-	return mask, left, right, math.Abs(left-right) <= insetTolerance
+	return mask, left, right, right >= left-1 && right <= left+insetSlackMax
 }
 
 // stillPainted reports the fraction of pill pixels the frame still paints, i.e.

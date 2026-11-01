@@ -36,8 +36,6 @@ const (
 	gapBetween = 8  // visible gap between two pills
 	gapItemPad = gapBetween / 2
 	numberYOff = -1
-	endPadIcon = 2  // trailing spacer after the last window icon
-	endPadText = 12 // trailing spacer after the +N counter
 )
 
 func slotID(spaceID, slot int) string { return fmt.Sprintf("%s%d.%d", itemPrefix, spaceID, slot) }
@@ -254,6 +252,9 @@ func renderArgs(in renderInput) ([]string, State) {
 			if findApp(cfg, w.App, in.bundles[w.PID]) == nil {
 				continue
 			}
+			if !shownOnSpace(w, sp.IsVisible) {
+				continue
+			}
 			windows = append(windows, w)
 		}
 
@@ -331,10 +332,13 @@ func renderArgs(in renderInput) ([]string, State) {
 		// trailing spacer: label.width is the only reliable way to reserve
 		// horizontal space, icon padding and bracket background padding are
 		// ignored by the layout engine
-		endWidth := endPadIcon
-		if overflow > 0 {
-			endWidth = endPadText
+		// empty slots and the empty overflow item each take one point, so the
+		// spacer shrinks by that much to keep the trailing space constant
+		dead := cfg.MaxWindowsPerSpace - placed
+		if overflow <= 0 {
+			dead++
 		}
+		endWidth := maxInt(pillInsetX-dead, 0)
 		args = append(args, "--set", endID(sp.ID),
 			"icon=", "icon.width=0", "icon.padding_left=0", "icon.padding_right=0",
 			"label=", "label.width="+itoa(endWidth),
