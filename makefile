@@ -46,7 +46,10 @@ uninstall:
 doctor:
 	@$(INSTALL_DIR)/update_sketchybar doctor
 
+verify: build
+	@./update_sketchybar verify
+
 reload:
 	sketchybar --reload
 
-.PHONY: build install uninstall doctor reload
+.PHONY: build install uninstall doctor reload verify

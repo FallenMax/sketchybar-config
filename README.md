@@ -146,6 +146,7 @@ make reload
 ```sh
 make install     # build, install, connect to yabai, start the bar
 make doctor      # check dependencies, integration points and the live bar
+make verify      # assert the layout invariants against the running bar
 make reload      # re-run sketchybarrc (picks up config.json changes)
 make uninstall   # disconnect from yabai, stop and remove the bar
 ```

@@ -33,4 +33,4 @@
 - 宽屏下 bar 窗口仍是半屏宽的中央条带，胶囊正上方的菜单栏空白区仍会吃掉点击；彻底消除需要动态 margin 或改 SketchyBar。
 - `space_created` 对 `yabai -m space --create` 不触发（实测 action 未执行）：CLI 建空间后要等下一个事件或 `make reload`；UI 建空间由 `mission_control_exit` 兜住。
 - `~/.yabairc` 注入是唯一一处改用户配置的写操作；用户若把 yabai 配置放在别处，重启 yabai 后 signal 不会重注册（`make doctor` 能查出）。
-- 没有自动化测试：不变量靠 `make doctor` 与开发期的像素级抓帧验证（见 `DEVELOPMENT.md`）。
+- 关键不变量（摆放几何、item 结构、左右内边距对称、渲染不闪、非法颜色回落）由 `make verify` 守住；其余靠 `make doctor` 的只读体检。

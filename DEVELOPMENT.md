@@ -4,54 +4,46 @@
 
 ## Harness
 
-启动
+`make verify` 是脚本化的证据，跑在真机的 bar 上，不需要人看截图。它先渲染一次（保证测的是当前代码产出的 bar），再断言：
+
+- bar geometry：位置、margin、y_offset、高度、topmost 与摆放规则一致
+- bar structure：item 列表与按当前空间推导的结构逐项一致
+- pill insets：胶囊左右内边距对称（容差 2.5pt），用"bar 显示/隐藏"两帧的差分只取本工具画的像素
+- no blank frame while rendering：渲染过程中连拍 8 帧，任一帧保留的本工具像素不得低于 60%
+- invalid color falls back：非法颜色回落，`multicolor` 关键字透传
+
+这三条都曾经真的坏过（左右不对称、每次渲染闪一下、结构重建），所以留在这里防回归。
 
 ```sh
-cd ~/code/github/sketchybar-config
-make install          # 构建、装到 ~/.config/sketchybar、注册 signal、重启服务、渲染一次
+make verify           # 只验证
+make install          # 装到 ~/.config/sketchybar 并渲染一次
+make doctor           # 依赖、服务、hook、signal、几何的只读体检
+make reload           # 改 config.json 后重跑 sketchybarrc
 ```
 
-可用标志：`make install` 结尾打印 `rendered: N spaces on the main display, ...`，且屏幕上出现胶囊。进程活着不算。
-
-自检
+驱动真实状态变化
 
 ```sh
-make doctor           # 依赖、scripting addition、服务、字体、config、hook、signal、bar 几何、item 数
-```
-
-全部 ✓ 才算实例可用。
-
-驱动
-
-```sh
-make reload                              # 重跑 sketchybarrc（改 config.json 后用）
-yabai -m space --focus N                 # 制造空间切换
-open -na TextEdit; killall TextEdit      # 制造窗口创建/销毁
-yabai -m space --create                  # 制造空间变化（注意：不触发 space_created）
+yabai -m space --focus N                 # 空间切换
+open -na TextEdit; killall TextEdit      # 窗口创建 / 销毁
+yabai -m space --create                  # 空间变化（注意：不触发 space_created）
 ~/.config/sketchybar/update_sketchybar   # 手动渲染一次
-```
-
-读回状态
-
-```sh
-sketchybar --query bar | python3 -m json.tool            # position/margin/y_offset/height/items
-sketchybar --query space.<id> | python3 -m json.tool     # bracket 背景、边框、bounding_rects
-sketchybar --query space.<id>.<slot>                     # 单个 item 的 icon/label/padding
+sketchybar --query bar | space.<id> | space.<id>.<slot>
 yabai -m query --spaces / --windows / --displays
 cat ~/.cache/sketchybar-config/slots.json
 ```
 
-证据
+写新断言时注意
 
-- 视觉：`screencapture -x /tmp/x.png`，再用 python + PIL 只取中线行或指定 x 范围统计像素。判断"有没有闪""间距对不对"必须走像素统计，肉眼看截图会漏掉 1~2 帧事件。
-- 几何：`bounding_rects` 给 pt 单位的真实布局；胶囊是全圆角，边框的水平/垂直极值只在中线出现，量墨迹内边距只能取中线附近几行，否则会把圆角当内容。
-- 像素坐标是 pt 的 2 倍（Retina）。
+- 视觉断言要能把"改坏"判红：改一个常量（比如 `endPadIcon`）重跑，必须红；只重构内部时必须绿。
+- 胶囊是全圆角：要在边框行以内、两侧各跳过几列取墨迹，否则会把圆角或边框本身当成内容（`verify` 里 `pad`/`edge` 就是在做这件事）。
+- 截图坐标是 pt 的 2 倍（Retina），用显示器宽度换算 scale。
+- 隐藏 bar 会连带改变菜单栏自身的合成结果，边界不要从差分图推断，要用布局给的 rect。
 
 清理
 
-- 自己开的临时应用用完 `killall`；临时改过的常量（阈值、offset）改回去并重新 `make install`。
-- 为了验证而临时创建的 space 用 `yabai -m space <mission-control index> --destroy` 删掉。
-- 证据留在 `/tmp`，不要清。
+- `make verify` 自己用临时目录，无需清理。
+- 临时改过的常量改回去并 `make install`；临时创建的 space 用 `yabai -m space <mission-control index> --destroy` 删掉。
 
 ## 已实测的环境事实
 

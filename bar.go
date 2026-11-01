@@ -36,7 +36,7 @@ const (
 	gapBetween = 8  // visible gap between two pills
 	gapItemPad = gapBetween / 2
 	numberYOff = -1
-	endPadIcon = 5  // trailing spacer after the last window icon
+	endPadIcon = 2  // trailing spacer after the last window icon
 	endPadText = 12 // trailing spacer after the +N counter
 )
 

@@ -27,6 +27,9 @@ func main() {
 		case "summary":
 			summary()
 			return
+		case "verify":
+			verify()
+			return
 		case "detect-display":
 			info := detectAndCacheDisplay()
 			fmt.Printf("display: builtin=%v menubar=%dpx\n", info.Builtin, info.MenubarHeight)
