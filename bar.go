@@ -25,11 +25,11 @@ const (
 	// and right stay clickable. Narrower displays put the bar at the bottom and
 	// ask yabai to keep that strip free.
 	wideDisplayWidth = 1800
-	topYOffset       = 2
+	topYOffset       = 4
 	bottomPaddingGap = 4
 
 	pillInsetX = 10 // border to the first/last content
-	pillInsetY = 1  // free space between bar edge and pill
+	pillInsetY = 2  // free space between bar edge and pill
 	pillBorder = 1
 	iconWidth  = 20 // icon box; glyphs are centered so this is also the spacing
 	numberPadX = 7  // space between the space number and the first icon
