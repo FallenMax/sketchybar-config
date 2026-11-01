@@ -14,6 +14,8 @@ type BarInfo struct {
 	Position string   `json:"position"`
 	Height   int      `json:"height"`
 	Topmost  string   `json:"topmost"`
+	Margin   int      `json:"margin"`
+	YOffset  int      `json:"y_offset"`
 }
 
 func runSketchybar(args []string) error {

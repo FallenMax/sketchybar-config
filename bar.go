@@ -20,6 +20,14 @@ const (
 // comes from either icon.width (the box the glyph is centered in) or from label
 // padding on the items at the edges of the pill.
 const (
+	// Displays at least this wide get the pills on top of the menu bar. The bar
+	// window is narrowed with margins there, so the menu bar widgets on the left
+	// and right stay clickable. Narrower displays put the bar at the bottom and
+	// ask yabai to keep that strip free.
+	wideDisplayWidth = 1800
+	topYOffset       = 2
+	bottomPaddingGap = 4
+
 	pillInsetX = 10 // border to the first/last content
 	pillInsetY = 1  // free space between bar edge and pill
 	pillBorder = 1
@@ -88,12 +96,39 @@ func structureArgs(existing []string, spaces []Space, maxWindows int) []string {
 	return args
 }
 
-func barArgs(h int, builtin bool) []string {
+// barLayout describes where the bar sits for a given main display width.
+type barLayout struct {
+	position string
+	margin   int
+	yOffset  int
+}
+
+func layoutFor(displayWidth, contentWidth int) barLayout {
+	if displayWidth >= wideDisplayWidth {
+		// keep the outer quarter of the menu bar free on both sides
+		margin := displayWidth / 4
+		if room := (displayWidth - contentWidth) / 2; margin > room {
+			margin = maxInt(room, 0)
+		}
+		return barLayout{position: "top", margin: margin, yOffset: topYOffset}
+	}
+	return barLayout{position: "bottom", margin: 0, yOffset: 0}
+}
+
+// maxContentWidth is a generous upper bound of how wide the pills can get.
+func maxContentWidth(spaces, maxWindows int) int {
+	const perWindow = iconWidth + 2
+	perPill := pillInsetX + numberPadX + 8 + maxWindows*perWindow + pillInsetX
+	return spaces*perPill + spaces*gapBetween
+}
+
+func barArgs(h int, builtin bool, layout barLayout) []string {
 	args := []string{"--bar",
 		"color=0x00000000",
-		"position=top",
+		"position=" + layout.position,
 		"height=" + itoa(h),
-		"margin=0", "y_offset=0",
+		"margin=" + itoa(layout.margin),
+		"y_offset=" + itoa(layout.yOffset),
 		"corner_radius=0", "border_width=0", "blur_radius=0",
 		"padding_left=0", "padding_right=0",
 		"display=main", "topmost=on", "sticky=on", "font_smoothing=on", "shadow=off",

@@ -255,3 +255,22 @@ func removeSignals() error {
 	}
 	return firstErr
 }
+
+// space settings used to reserve screen space for a bottom bar. yabai keeps
+// them in memory, so the original values are remembered by the caller.
+func bottomPadding(spaceIndex int) (int, error) {
+	out, err := exec.Command("yabai", "-m", "config", "--space", strconv.Itoa(spaceIndex), "bottom_padding").Output()
+	if err != nil {
+		return 0, err
+	}
+	value, err := strconv.Atoi(strings.TrimSpace(string(out)))
+	if err != nil {
+		return 0, err
+	}
+	return value, nil
+}
+
+func setBottomPadding(spaceIndex, value int) error {
+	return yabaiExec("-m", "config", "--space", strconv.Itoa(spaceIndex),
+		"bottom_padding", strconv.Itoa(value))
+}

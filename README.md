@@ -13,6 +13,10 @@ number and one icon per window, with per-app colors and an overflow counter.
 - the active space gets a colored border and a brighter space number
 - windows that do not fit show as `+N`
 - icons only, no window titles
+- placement follows the display: wide displays (>= 1800pt) get the pills on top of
+  the menu bar, with the bar window narrowed by margins so the menu bar widgets on
+  the left and right stay clickable. Narrower displays (internal screens) get the
+  pills at the bottom, and yabai is asked to keep that strip free of windows
 
 ## Requirements
 
@@ -57,7 +61,10 @@ Nothing else on your system is modified. No yabai setting is written at runtime.
 - `~/.yabairc` — two lines appended once (a marker comment plus
   `. "$HOME/.config/sketchybar/yabai-hook.sh"`); the file is backed up before the first append
 - yabai signals — registered in memory, re-registered every time yabai starts
-- `~/.cache/sketchybar-config/` — display probe result and window slot state
+- yabai `bottom_padding` per space — only while the bar sits at the bottom; the
+  previous values are remembered in the cache and restored when the bar moves back
+  to the top or when you uninstall
+- `~/.cache/sketchybar-config/` — display probe result, window slots and reserved padding
 
 `make uninstall` reverts all of the above except `config.json` and `*.bak.*` backups.
 
@@ -78,8 +85,9 @@ The resulting behaviour for each startup combination:
   re-registered, the bar keeps working
 - sketchybar restarts (`make reload`, `brew services restart sketchybar`) — the bar
   rebuilds itself from yabai state, window icons keep their slot
-- display added/removed/changed, menu bar hidden or shown — re-probed and redrawn,
-  without restarting anybody
+- display added/removed/changed, menu bar hidden or shown — re-probed and redrawn
+  without restarting anybody; the top/bottom decision is re-evaluated from the new
+  display width
 - yabai is not running at all — the bar stays empty and the reason is logged, see
   [Troubleshooting](#troubleshooting)
 
@@ -156,9 +164,10 @@ make uninstall   # disconnect from yabai, stop and remove the bar
   - look at the logs, they are the only place where errors surface:
     - renderer / sketchybarrc: `$(brew --prefix)/var/log/sketchybar/sketchybar.out.log`
     - signal actions (spawned by yabai): `/tmp/yabai_$(whoami).out.log` and `.err.log`
-- you want the menu bar back for a moment
-  - the bar overlays the macOS menu bar, so menu bar items behind it cannot be clicked.
-    Hide it temporarily with `sketchybar --bar hidden=toggle`, or bind that to a hotkey
+- the menu bar icons are not clickable
+  - on wide displays the bar only covers the middle band of the menu bar (margins keep
+    the left and right free). If something still sits behind the bar window, hide it
+    with `sketchybar --bar hidden=toggle` or check `make doctor` for the bar geometry
 - a new space is missing
   - `yabai -m space --create` emits no event; switch to the space or run `make reload`
 

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -164,6 +165,14 @@ func removeYabaircHook() {
 }
 
 func teardown() {
+	// restore any screen space that was reserved for a bottom bar
+	state := loadState()
+	for index, value := range state.Padding {
+		if idx, err := strconv.Atoi(index); err == nil {
+			setBottomPadding(idx, value)
+		}
+	}
+
 	if err := removeSignals(); err != nil {
 		fmt.Fprintf(os.Stderr, "signals: %v\n", err)
 	} else {
@@ -245,22 +254,33 @@ func doctor() {
 	}
 
 	registered, signalsErr := registeredSignals()
-	want := len(signalsFor(""))
+	wantSignals := len(signalsFor(""))
 	got := 0
 	for _, sig := range signalsFor("") {
 		if registered[signalLabel(sig.event)] {
 			got++
 		}
 	}
-	add("yabai signals", signalsErr == nil && got == want,
-		describeErr(signalsErr, fmt.Sprintf("%d/%d registered", got, want)),
+	add("yabai signals", signalsErr == nil && got == wantSignals,
+		describeErr(signalsErr, fmt.Sprintf("%d/%d registered", got, wantSignals)),
 		"restart yabai (the hook re-registers them) or run `update_sketchybar setup`")
 
 	info := loadDisplayInfo()
 	bar, barErr := queryBar()
-	barOK := barErr == nil && bar.Height == info.MenubarHeight && bar.Position == "top" && bar.Topmost == "on"
+	displays, displaysErr := queryDisplays()
+	var want barLayout
+	if displaysErr == nil && len(spaces) > 0 {
+		want = layoutFor(displayWidth(displays), maxContentWidth(len(spaces), cfg.MaxWindowsPerSpace))
+	}
+	barOK := barErr == nil && displaysErr == nil &&
+		bar.Height == info.MenubarHeight &&
+		bar.Topmost == "on" &&
+		bar.Position == want.position &&
+		bar.Margin == want.margin &&
+		bar.YOffset == want.yOffset
 	add("bar geometry", barOK,
-		describeErr(barErr, fmt.Sprintf("position=%s height=%d (menubar %d) topmost=%s", bar.Position, bar.Height, info.MenubarHeight, bar.Topmost)),
+		describeErr(barErr, fmt.Sprintf("position=%s margin=%d y_offset=%d height=%d, expected position=%s margin=%d y_offset=%d (menubar %d)",
+			bar.Position, bar.Margin, bar.YOffset, bar.Height, want.position, want.margin, want.yOffset, info.MenubarHeight)),
 		"sketchybar --reload")
 
 	bar, barErr = queryBar()

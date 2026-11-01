@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -167,12 +168,15 @@ func render() error {
 	// blink.
 	rebuilt := len(existing) == 0 || state.Structure != fingerprint
 
+	layout := layoutFor(displayWidth(displays), maxContentWidth(len(spaces), cfg.MaxWindowsPerSpace))
+	applySpaceReservation(layout, spaces, display, &state)
+
 	// Bar properties and item defaults are only applied when they are actually
 	// missing. Sending them on every update forces sketchybar to relayout the
 	// whole bar, which shows up as a flicker on every space or window change.
-	if rebuilt || barOutdated(bar, display) {
+	if rebuilt || barOutdated(bar, display, layout) {
 		var setup []string
-		setup = append(setup, barArgs(display.MenubarHeight, display.Builtin)...)
+		setup = append(setup, barArgs(display.MenubarHeight, display.Builtin, layout)...)
 		if rebuilt {
 			setup = append(setup, defaultArgs(display.MenubarHeight)...)
 			setup = append(setup, structureArgs(bar.Items, spaces, cfg.MaxWindowsPerSpace)...)
@@ -196,14 +200,9 @@ func render() error {
 		return err
 	}
 	nextState.Structure = fingerprint
+	nextState.Padding = state.Padding
 	saveState(nextState)
 
-	visible := 0
-	for _, sp := range spaces {
-		if sp.IsVisible {
-			visible++
-		}
-	}
 	note := ""
 	if rebuilt {
 		note = " (structure rebuilt)"
@@ -240,8 +239,58 @@ func activeSpace(spaces []Space, previous int) int {
 }
 
 // barOutdated reports whether the bar itself has to be reconfigured.
-func barOutdated(bar BarInfo, display DisplayInfo) bool {
-	return bar.Position != "top" || bar.Height != display.MenubarHeight || bar.Topmost != "on"
+func barOutdated(bar BarInfo, display DisplayInfo, layout barLayout) bool {
+	return bar.Position != layout.position ||
+		bar.Height != display.MenubarHeight ||
+		bar.Topmost != "on" ||
+		bar.Margin != layout.margin ||
+		bar.YOffset != layout.yOffset
+}
+
+func displayWidth(displays []Display) int {
+	main := mainDisplayIndex(displays)
+	for _, d := range displays {
+		if d.Index == main {
+			return int(d.Frame.W)
+		}
+	}
+	return 0
+}
+
+// applySpaceReservation keeps the strip free under a bottom bar and restores the
+// user's own bottom padding when the bar moves back to the top.
+func applySpaceReservation(layout barLayout, spaces []Space, display DisplayInfo, state *State) {
+	if layout.position == "bottom" {
+		if state.Padding != nil {
+			return
+		}
+		reserved := display.MenubarHeight + bottomPaddingGap
+		state.Padding = map[string]int{}
+		for _, sp := range spaces {
+			original, err := bottomPadding(sp.Index)
+			if err != nil {
+				continue
+			}
+			if original == reserved {
+				continue
+			}
+			if err := setBottomPadding(sp.Index, reserved); err != nil {
+				continue
+			}
+			state.Padding[itoa(sp.Index)] = original
+		}
+		return
+	}
+
+	if state.Padding == nil {
+		return
+	}
+	for index, value := range state.Padding {
+		if idx, err := strconv.Atoi(index); err == nil {
+			setBottomPadding(idx, value)
+		}
+	}
+	state.Padding = nil
 }
 
 func retry(fn func() error) error {

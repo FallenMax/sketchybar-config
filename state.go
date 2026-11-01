@@ -17,6 +17,10 @@ type State struct {
 	// freshly derived structure so a stale answer from sketchybar (which happens
 	// while the window server is rearranging spaces) never triggers a rebuild.
 	Structure string `json:"structure"`
+	// Padding holds the bottom_padding values that were replaced to reserve
+	// space for a bottom bar, keyed by space index. Empty means nothing is
+	// currently reserved.
+	Padding map[string]int `json:"padding,omitempty"`
 }
 
 func statePath() string { return filepath.Join(cacheDir(), "slots.json") }
