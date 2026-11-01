@@ -13,7 +13,7 @@
 - 事件：18 个 yabai signal；yabai 重启会丢 signal，因此 `~/.yabairc` 里 source `yabai-hook.sh` 负责重注册并重绘。
 - 持久状态只在 `~/.cache/sketchybar-config/`：`display.json`（内建屏 + 菜单栏高度）、`slots.json`（窗口→槽位、上次活跃空间、结构指纹、被替换的 bottom_padding）。
 - 结构：每个空间一组固定 item——`space.{id}.0`（空间号）、`.1..N`（窗口）、`.more`（+N）、`.end`（右侧留白）、`space.{id}`（bracket）、`space.{id}.gap`。只在结构指纹变化或 bar 为空时重建。
-- 摆放（`layoutFor`）由主显示器宽度决定：≥1800pt 顶部并设 margin 让开菜单栏两端控件；否则底部，并用 yabai `bottom_padding` 腾出条带。
+- 摆放（`layoutFor`）由主显示器宽度是否达到阈值（`wideDisplayWidth`）决定：够宽就顶部并设 margin 让开菜单栏两端控件；否则底部，并用 yabai `bottom_padding` 腾出条带。具体数值留在代码里，`verify` 会把实际值与期望值一起打印。
 - 配置：`colors.border`、`colors.icon`（单色或 `multicolor`）、`maxWindowsPerSpace`、`apps[]`。
 - 安装层：`make install` 只动 `~/.config/sketchybar/*`、`~/.yabairc` 两行、yabai signal、缓存目录；`make doctor` 逐项核对；`make uninstall` 全部还原。
 
