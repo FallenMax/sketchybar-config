@@ -181,12 +181,19 @@ Removes the binary, the hook script, the yabai signals, the two `~/.yabairc` lin
 the cache directory, then stops the service. `config.json`, `sketchybarrc` and any
 `*.bak.*` backups stay behind so you can reinstall without losing your app list.
 
+## Development
+
+Design memory lives in [ARCHITECTURE.md](./ARCHITECTURE.md) (forces, design,
+decisions, known deviations); verification recipes and measured environment facts
+live in [DEVELOPMENT.md](./DEVELOPMENT.md).
+
 ## How it works
 
 - one Go binary, no runtime dependencies, talks to `yabai` and `sketchybar` only
-- stateless: every render reads spaces, windows and displays from yabai and rebuilds
-  the bar; the only persisted state is "which window sits in which slot"
-  (`~/.cache/sketchybar-config/slots.json`), so icons do not jump around
+- stateless renderer: every render reads spaces, windows and displays from yabai;
+  the only persisted state is what a render cannot derive (window slots so icons do
+  not jump around, the display probe, and any bottom padding it replaced) and it
+  lives in `~/.cache/sketchybar-config/`
 - yabai signals trigger renders; concurrent events coalesce into one extra render
   instead of being dropped
 - only spaces of the main display are drawn (one bar, one display)
