@@ -44,6 +44,7 @@ cat ~/.cache/sketchybar-config/slots.json
 
 - `make verify` 自己用临时目录，无需清理。
 - 临时改过的常量改回去并 `make install`；临时创建的 space 用 `yabai -m space <mission-control index> --destroy` 删掉。
+- 手工送过 `--bar ...`（尤其 `margin`）之后必须跑一次 `~/.config/sketchybar/update_sketchybar`：bar 属性是**全局且持久**的，把 margin 设成 0 会让窗口盖住整条菜单栏、菜单全部点不动，而下一次渲染才会按胶囊重新收窄。`make doctor` 的「menu bar not covered」一项会兜住这种残留。
 
 ## 已实测的环境事实
 

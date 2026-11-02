@@ -277,6 +277,22 @@ func doctor() {
 		bar.Topmost == "on" &&
 		bar.Position == want.position &&
 		bar.YOffset == want.yOffset
+	// the bar window swallows every click it covers, so it must stay close to
+	// the pills; a full-width overlay is easy to leave behind after changing a
+	// bar property by hand
+	if displaysErr == nil && len(spaces) > 0 && want.position == "top" {
+		first, firstErr := rectOf(bracketID(spaces[0].ID))
+		last, lastErr := rectOf(bracketID(spaces[len(spaces)-1].ID))
+		if firstErr == nil && lastErr == nil {
+			content := last.x1 - first.x0
+			windowWidth := displayWidth(displays) - 2*bar.Margin
+			hugs := windowWidth <= 2*content+200
+			add("menu bar not covered", hugs,
+				fmt.Sprintf("bar window %dpt wide for %dpt of pills (screen %dpt)", windowWidth, content, displayWidth(displays)),
+				"run `update_sketchybar` (or make install) to re-fit the bar window")
+		}
+	}
+
 	add("bar geometry", barOK,
 		describeErr(barErr, fmt.Sprintf("position=%s margin=%d y_offset=%d height=%d, expected position=%s y_offset=%d (menubar %d)",
 			bar.Position, bar.Margin, bar.YOffset, bar.Height, want.position, want.yOffset, info.MenubarHeight)),

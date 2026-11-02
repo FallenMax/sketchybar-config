@@ -168,9 +168,11 @@ make uninstall   # disconnect from yabai, stop and remove the bar
     - renderer / sketchybarrc: `$(brew --prefix)/var/log/sketchybar/sketchybar.out.log`
     - signal actions (spawned by yabai): `/tmp/yabai_$(whoami).out.log` and `.err.log`
 - the menu bar icons are not clickable
-  - on wide displays the bar only covers the middle band of the menu bar (margins keep
-    the left and right free). If something still sits behind the bar window, hide it
-    with `sketchybar --bar hidden=toggle` or check `make doctor` for the bar geometry
+  - on wide displays the bar window is shrunk to the pills, so only that strip blocks
+    clicks; everything else in the menu bar stays clickable. If the whole menu bar
+    stops responding, a bar property was changed by hand — run
+    `make doctor` (it reports "menu bar not covered") and then `update_sketchybar`
+    to re-fit the window. `sketchybar --bar hidden=toggle` hides the bar entirely
 - a new space is missing
   - `yabai -m space --create` emits no event; switch to the space or run `make reload`
 
