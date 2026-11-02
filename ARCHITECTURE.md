@@ -12,7 +12,7 @@
 - `update_sketchybar`（Go 单包）无状态：每次从 yabai 读真相，重算结构，再一次性发 `--set`。
 - 事件：18 个 yabai signal；yabai 重启会丢 signal，因此 `~/.yabairc` 里 source `yabai-hook.sh` 负责重注册并重绘。
 - 持久状态只在 `~/.cache/sketchybar-config/`：`display.json`（内建屏 + 菜单栏高度）、`slots.json`（窗口→槽位、上次活跃空间、结构指纹、被替换的 bottom_padding）。
-- 可见性：只给"真的存在且在屏幕上"的窗口画 icon。跨空间可判的是窗口自身状态——有 AX 引用、未最小化、app 未隐藏；`is-visible` 只对当前显示的空间有意义（隐藏空间里的窗口一律为 false）。三个状态合起来才同时排掉"app 已经关掉但 yabai 还列着"的僵尸窗口，又不把其他空间的胶囊清空。
+- 可见性：只给"真的存在且在屏幕上、且是用户会切换的窗口"画 icon。跨空间可判的是窗口自身状态——有 AX 引用、未最小化、app 未隐藏、不是 `AXSystemDialog` 面板；`is-visible` 只对当前显示的空间有意义（隐藏空间里的窗口一律为 false）。sticky 窗口被 yabai 列进每一个空间的窗口表，因此只算当前可见空间那一份，否则每个胶囊都会重复同一批图标。
 - 结构：每个空间一组固定 item——`space.{id}.0`（空间号）、`.1..N`（窗口）、`.more`（+N）、`.end`（右侧留白）、`space.{id}`（bracket）、`space.{id}.gap`。只在结构指纹变化或 bar 为空时重建。
 - 摆放（`layoutFor`）由主显示器宽度是否达到阈值（`wideDisplayWidth`）决定：够宽就顶部，否则底部并用 yabai `bottom_padding` 腾出条带。顶部模式的 margin 不是固定值，而是渲染后按胶囊的实际跨度收窄（`syncMargin`），让 bar 窗口刚好盖住胶囊。
 - 配置：`colors.border`、`colors.icon`（单色或 `multicolor`）、`maxWindowsPerSpace`、`apps[]`。

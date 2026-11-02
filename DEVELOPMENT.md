@@ -64,6 +64,7 @@ app 被隐藏（Cmd+H）           false       false         true       true
 app 已关闭窗口但 yabai 还列着  false       false         false      false
 ```
 
+  另外两种容易误判的窗口：`is-sticky=true` 的窗口会出现在**每一个**空间的 `windows` 列表里（只算一份，否则每个胶囊都重复）；`subrole=AXSystemDialog`（常见 `layer=unknown`）是 app 挂上去的面板/对话框，不是用户会切换的窗口，要排除。
   所以"窗口是否真的存在"看 `has-ax-reference`，"被藏起来"看 `is-minimized`/`is-hidden`，`is-visible` 只在当前空间可用。这也解释了一个坑：Spotify / 微信这类窗口在 yabai 里长期存在但 `has-ax-reference=false`，它们不是最小化，而是 app 已经不再持有该窗口。
 - 验证可见性/最小化用 `open -na Safari` → `yabai -m window <id> --minimize` / `yabai -m window --deminimize <id>` 观察 icon 增减；隐藏 app 用 AX 写 `AXHidden`（`AXUIElementSetAttributeValue(app, "AXHidden", true)`，本机终端已有辅助功能权限）。`verify` 的 window icons 一项每次跑都会兜住这条规则。
 - `yabai -m config --space N bottom_padding` 可读可写，用于底部 bar 腾出条带；原值需自行记录还原。

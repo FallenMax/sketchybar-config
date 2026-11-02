@@ -29,7 +29,9 @@ type Window struct {
 	IsHidden    bool   `json:"is-hidden"`
 	// HasAXReference is false for windows the app has already closed but yabai
 	// still lists; those are not on screen on any space.
-	HasAXReference bool `json:"has-ax-reference"`
+	HasAXReference bool   `json:"has-ax-reference"`
+	IsSticky       bool   `json:"is-sticky"`
+	Subrole        string `json:"subrole"`
 }
 
 // shownOnSpace reports whether the icon for this window belongs on the bar.
@@ -43,10 +45,17 @@ func shownOnSpace(w Window, spaceVisible bool) bool {
 	if !w.HasAXReference || w.IsMinimized || w.IsHidden {
 		return false
 	}
+	// system dialogs are panels an app attaches to itself (file pickers, helper
+	// panels); they are not windows the user switches to
+	if w.Subrole == "AXSystemDialog" {
+		return false
+	}
 	if spaceVisible {
 		return w.IsVisible
 	}
-	return true
+	// a sticky window is listed for every space; showing it in every pill would
+	// flood the bar with the same icons, so it only belongs to the visible space
+	return !w.IsSticky
 }
 
 type Frame struct {
