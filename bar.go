@@ -25,6 +25,11 @@ const (
 	// and right stay clickable. Narrower displays put the bar at the bottom and
 	// ask yabai to keep that strip free.
 	wideDisplayWidth = 1800
+	// keep a little of the bar window around the pills, but no more: everything
+	// the window covers cannot be clicked
+	marginBreathingRoom = 8
+	// only touch the margin when it has to move noticeably
+	marginHysteresis = 16
 	topYOffset       = 4
 	bottomPaddingGap = 4
 
@@ -94,38 +99,44 @@ func structureArgs(existing []string, spaces []Space, maxWindows int) []string {
 	return args
 }
 
-// barLayout describes where the bar sits for a given main display width.
+// barLayout describes where the bar sits for a given main display width. The
+// margin is not part of it: it is derived from the pills (see marginForContent)
+// so the bar window only covers what it draws, which is the only way to keep
+// the rest of the menu bar clickable.
 type barLayout struct {
 	position string
-	margin   int
 	yOffset  int
 }
 
-func layoutFor(displayWidth, contentWidth int) barLayout {
+func layoutFor(displayWidth int) barLayout {
 	if displayWidth >= wideDisplayWidth {
-		// keep the outer quarter of the menu bar free on both sides
-		margin := displayWidth / 4
-		if room := (displayWidth - contentWidth) / 2; margin > room {
-			margin = maxInt(room, 0)
-		}
-		return barLayout{position: "top", margin: margin, yOffset: topYOffset}
+		return barLayout{position: "top", yOffset: topYOffset}
 	}
-	return barLayout{position: "bottom", margin: 0, yOffset: 0}
+	return barLayout{position: "bottom", yOffset: 0}
 }
 
-// maxContentWidth is a generous upper bound of how wide the pills can get.
-func maxContentWidth(spaces, maxWindows int) int {
-	const perWindow = iconWidth + 2
-	perPill := pillInsetX + numberPadX + 8 + maxWindows*perWindow + pillInsetX
-	return spaces*perPill + spaces*gapBetween
+// marginForContent returns the margin that makes the bar window just wide enough
+// to cover the pills, or -1 when the content bounds are unknown.
+func marginForContent(displayWidth, contentLeft, contentRight int) int {
+	if contentLeft <= 0 || contentRight <= 0 || contentRight <= contentLeft {
+		return -1
+	}
+	// sketchybar centers the window, so both sides need at least this margin
+	left := contentLeft - marginBreathingRoom
+	right := displayWidth - contentRight - marginBreathingRoom
+	margin := minInt(left, right)
+	if margin < 0 {
+		return 0
+	}
+	return margin
 }
 
-func barArgs(h int, builtin bool, layout barLayout) []string {
+func barArgs(h int, builtin bool, layout barLayout, margin int) []string {
 	args := []string{"--bar",
 		"color=0x00000000",
 		"position=" + layout.position,
 		"height=" + itoa(h),
-		"margin=" + itoa(layout.margin),
+		"margin=" + itoa(margin),
 		"y_offset=" + itoa(layout.yOffset),
 		"corner_radius=0", "border_width=0", "blur_radius=0",
 		"padding_left=0", "padding_right=0",
@@ -163,6 +174,20 @@ func maxInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func absInt(v int) int {
+	if v < 0 {
+		return -v
+	}
+	return v
 }
 
 // assignSlots keeps windows in their previous slot when possible and only moves

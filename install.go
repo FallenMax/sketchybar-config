@@ -269,18 +269,17 @@ func doctor() {
 	bar, barErr := queryBar()
 	displays, displaysErr := queryDisplays()
 	var want barLayout
-	if displaysErr == nil && len(spaces) > 0 {
-		want = layoutFor(displayWidth(displays), maxContentWidth(len(spaces), cfg.MaxWindowsPerSpace))
+	if displaysErr == nil {
+		want = layoutFor(displayWidth(displays))
 	}
 	barOK := barErr == nil && displaysErr == nil &&
 		bar.Height == info.MenubarHeight &&
 		bar.Topmost == "on" &&
 		bar.Position == want.position &&
-		bar.Margin == want.margin &&
 		bar.YOffset == want.yOffset
 	add("bar geometry", barOK,
-		describeErr(barErr, fmt.Sprintf("position=%s margin=%d y_offset=%d height=%d, expected position=%s margin=%d y_offset=%d (menubar %d)",
-			bar.Position, bar.Margin, bar.YOffset, bar.Height, want.position, want.margin, want.yOffset, info.MenubarHeight)),
+		describeErr(barErr, fmt.Sprintf("position=%s margin=%d y_offset=%d height=%d, expected position=%s y_offset=%d (menubar %d)",
+			bar.Position, bar.Margin, bar.YOffset, bar.Height, want.position, want.yOffset, info.MenubarHeight)),
 		"sketchybar --reload")
 
 	bar, barErr = queryBar()

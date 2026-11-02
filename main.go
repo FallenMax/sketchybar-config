@@ -171,7 +171,7 @@ func render() error {
 	// blink.
 	rebuilt := len(existing) == 0 || state.Structure != fingerprint
 
-	layout := layoutFor(displayWidth(displays), maxContentWidth(len(spaces), cfg.MaxWindowsPerSpace))
+	layout := layoutFor(displayWidth(displays))
 	applySpaceReservation(layout, spaces, display, &state)
 
 	// Bar properties and item defaults are only applied when they are actually
@@ -179,7 +179,7 @@ func render() error {
 	// whole bar, which shows up as a flicker on every space or window change.
 	if rebuilt || barOutdated(bar, display, layout) {
 		var setup []string
-		setup = append(setup, barArgs(display.MenubarHeight, display.Builtin, layout)...)
+		setup = append(setup, barArgs(display.MenubarHeight, display.Builtin, layout, bar.Margin)...)
 		if rebuilt {
 			setup = append(setup, defaultArgs(display.MenubarHeight)...)
 			setup = append(setup, structureArgs(bar.Items, spaces, cfg.MaxWindowsPerSpace)...)
@@ -205,6 +205,12 @@ func render() error {
 	nextState.Structure = fingerprint
 	nextState.Padding = state.Padding
 	saveState(nextState)
+
+	// shrink or grow the bar window so it only covers the pills: whatever the
+	// window covers cannot be clicked
+	if err := syncMargin(bar, layout, spaces, displayWidth(displays)); err != nil {
+		fmt.Fprintf(os.Stderr, "margin: %v\n", err)
+	}
 
 	note := ""
 	if rebuilt {
@@ -246,8 +252,37 @@ func barOutdated(bar BarInfo, display DisplayInfo, layout barLayout) bool {
 	return bar.Position != layout.position ||
 		bar.Height != display.MenubarHeight ||
 		bar.Topmost != "on" ||
-		bar.Margin != layout.margin ||
 		bar.YOffset != layout.yOffset
+}
+
+// syncMargin keeps the bar window as small as the pills allow. Whatever the
+// window covers cannot be clicked, so a full-width bar would swallow the whole
+// menu bar. Called after a render, because the pill bounds are only known once
+// sketchybar laid them out.
+func syncMargin(bar BarInfo, layout barLayout, spaces []Space, displayWidth int) error {
+	if layout.position != "top" {
+		// a bottom bar spans the screen; yabai keeps that strip free of windows
+		if bar.Margin != 0 {
+			return runSketchybar([]string{"--bar", "margin=0"})
+		}
+		return nil
+	}
+	if len(spaces) < 1 {
+		return nil
+	}
+	first, err := rectOf(bracketID(spaces[0].ID))
+	if err != nil {
+		return err
+	}
+	last, err := rectOf(bracketID(spaces[len(spaces)-1].ID))
+	if err != nil {
+		return err
+	}
+	margin := marginForContent(displayWidth, first.x0, last.x1)
+	if margin < 0 || absInt(margin-bar.Margin) < marginHysteresis {
+		return nil
+	}
+	return runSketchybar([]string{"--bar", "margin=" + itoa(margin)})
 }
 
 func displayWidth(displays []Display) int {

@@ -16,8 +16,8 @@ number and one icon per window, with per-app colors and an overflow counter.
 - windows that do not fit show as `+N`
 - icons only, no window titles
 - placement follows the display: wide displays (>= 1800pt) get the pills on top of
-  the menu bar, with the bar window narrowed by margins so the menu bar widgets on
-  the left and right stay clickable. Narrower displays (internal screens) get the
+  the menu bar, and the bar window is shrunk to the width of the pills, so the menu
+  bar on both sides stays clickable. Narrower displays (internal screens) get the
   pills at the bottom, and yabai is asked to keep that strip free of windows
 
 ## Requirements

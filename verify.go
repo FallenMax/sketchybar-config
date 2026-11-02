@@ -71,17 +71,35 @@ func verify() {
 	}
 
 	// 1. the bar sits where the placement rule says it should
-	layout := layoutFor(displayWidth(displays), maxContentWidth(len(spaces), cfg.MaxWindowsPerSpace))
+	layout := layoutFor(displayWidth(displays))
 	add("bar geometry", bar.Position == layout.position &&
-		bar.Margin == layout.margin &&
 		bar.YOffset == layout.yOffset &&
 		bar.Height == display.MenubarHeight &&
 		bar.Topmost == "on",
-		"position=%s margin=%d y_offset=%d height=%d, expected position=%s margin=%d y_offset=%d height=%d",
+		"position=%s margin=%d y_offset=%d height=%d, expected position=%s y_offset=%d height=%d",
 		bar.Position, bar.Margin, bar.YOffset, bar.Height,
-		layout.position, layout.margin, layout.yOffset, display.MenubarHeight)
+		layout.position, layout.yOffset, display.MenubarHeight)
 
-	// 2. the item structure matches the derived one (no stale slots left behind)
+	// 2. the bar window only covers the pills: everything it covers is not
+	// clickable, so a full-width overlay would swallow the whole menu bar
+	if layout.position == "top" && len(spaces) > 0 {
+		first, firstErr := rectOf(bracketID(spaces[0].ID))
+		last, lastErr := rectOf(bracketID(spaces[len(spaces)-1].ID))
+		contentErr := firstErr
+		if contentErr == nil {
+			contentErr = lastErr
+		}
+		hugs, detail := false, "content bounds unavailable"
+		if contentErr == nil {
+			needed := marginForContent(displayWidth(displays), first.x0, last.x1)
+			hugs = bar.Margin <= minInt(first.x0, displayWidth(displays)-last.x1)
+			hugs = hugs && bar.Margin >= needed-marginHysteresis
+			detail = fmt.Sprintf("margin=%d, pills span %d..%d, tightest margin=%d", bar.Margin, first.x0, last.x1, needed)
+		}
+		add("bar window hugs the pills", contentErr == nil && hugs, "%s", detail)
+	}
+
+	// 3. the item structure matches the derived one (no stale slots left behind)
 	desired := desiredItems(spaces, cfg.MaxWindowsPerSpace)
 	live := filterOurs(bar.Items)
 	structureOK := len(live) == len(desired)
@@ -95,7 +113,7 @@ func verify() {
 	}
 	add("bar structure", structureOK, "%d live items, %d expected", len(live), len(desired))
 
-	// 3. only windows that are really on screen get an icon on the active space
+	// 4. only windows that are really on screen get an icon on the active space
 	windows, windowsErr := queryWindows()
 	bundles := resolveBundleNames()
 	activeID := activeSpace(spaces, 0)
@@ -131,7 +149,7 @@ func verify() {
 	add("window icons", windowsErr == nil && drawnIcons == wantIcons,
 		"%d icons drawn, %d windows on screen (space visible=%v)", drawnIcons, expectedIcons, activeSpaceVisible)
 
-	// 4. the pills own the inset they claim on both sides
+	// 5. the pills own the inset they claim on both sides
 	// the bar animates in after being shown or reconfigured, so give it time to
 	// settle before treating a frame as the baseline
 	runSketchybar([]string{"--bar", "hidden=off"})
@@ -180,7 +198,7 @@ func verify() {
 	add("pill insets", insetsOK,
 		"left %.1fpt right %.1fpt (allowed %.1f..%.1f)", leftInset, rightInset, leftInset-1, leftInset+insetSlackMax)
 
-	// 5. a render never blanks the pills
+	// 6. a render never blanks the pills
 	if len(mask) == 0 {
 		add("no blank frame while rendering", false, "no pill pixels found")
 	} else {
@@ -203,7 +221,7 @@ func verify() {
 		}
 	}
 
-	// 6. invalid colors fall back instead of rendering nothing
+	// 7. invalid colors fall back instead of rendering nothing
 	fallbackOK := normalizeColor("0xzz", defaultColor) == defaultColor && normalizeColor(multicolor, defaultColor) == multicolor
 	add("invalid color falls back", fallbackOK, "%s / %s", normalizeColor("0xzz", defaultColor), multicolor)
 

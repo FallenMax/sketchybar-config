@@ -14,7 +14,7 @@
 - 持久状态只在 `~/.cache/sketchybar-config/`：`display.json`（内建屏 + 菜单栏高度）、`slots.json`（窗口→槽位、上次活跃空间、结构指纹、被替换的 bottom_padding）。
 - 可见性：只给"真的存在且在屏幕上"的窗口画 icon。跨空间可判的是窗口自身状态——有 AX 引用、未最小化、app 未隐藏；`is-visible` 只对当前显示的空间有意义（隐藏空间里的窗口一律为 false）。三个状态合起来才同时排掉"app 已经关掉但 yabai 还列着"的僵尸窗口，又不把其他空间的胶囊清空。
 - 结构：每个空间一组固定 item——`space.{id}.0`（空间号）、`.1..N`（窗口）、`.more`（+N）、`.end`（右侧留白）、`space.{id}`（bracket）、`space.{id}.gap`。只在结构指纹变化或 bar 为空时重建。
-- 摆放（`layoutFor`）由主显示器宽度是否达到阈值（`wideDisplayWidth`）决定：够宽就顶部并设 margin 让开菜单栏两端控件；否则底部，并用 yabai `bottom_padding` 腾出条带。具体数值留在代码里，`verify` 会把实际值与期望值一起打印。
+- 摆放（`layoutFor`）由主显示器宽度是否达到阈值（`wideDisplayWidth`）决定：够宽就顶部，否则底部并用 yabai `bottom_padding` 腾出条带。顶部模式的 margin 不是固定值，而是渲染后按胶囊的实际跨度收窄（`syncMargin`），让 bar 窗口刚好盖住胶囊。
 - 配置：`colors.border`、`colors.icon`（单色或 `multicolor`）、`maxWindowsPerSpace`、`apps[]`。
 - 安装层：`make install` 只动 `~/.config/sketchybar/*`、`~/.yabairc` 两行、yabai signal、缓存目录；`make doctor` 逐项核对；`make uninstall` 全部还原。
 
@@ -28,11 +28,12 @@
 - 颜色拆成 border / icon 两个开关，默认都是蓝色；非活跃空间统一降 alpha(0x88)，不引入第三套颜色。
 - 不使用 SketchyBar 的 space 事件驱动渲染：一次切换会连发多次 `space_windows_change`，渲染叠加反而更闪。
 - 摆放按显示器宽度而不是"是否内建屏"判定：够宽的屏顶部更省空间，与刘海无关。
-- 被否决：按内容宽度动态设 margin（每次开关窗口都 relayout，把闪烁带回来）；改 SketchyBar 源码加"忽略鼠标"；常驻 daemon。
+- 点击可用性靠"让开"而不是"穿透"：SketchyBar 没有忽略鼠标的开关，实测私有 API `CGSSetWindowEventMask(cid, wid, 0)` 对它的窗口无效。因此顶部模式把 bar 窗口收窄到胶囊宽度——窗口盖住的区域收不到点击，收窄后菜单栏左右两端（app 菜单、状态图标）恢复可点，只剩胶囊本身挡住它下面那一小块空白。
+- 被否决：改 SketchyBar 源码加"忽略鼠标"；让 bar 独占一条（顶部或底部）以换取完全不挡东西，代价是 22pt 屏幕高度；常驻 daemon。
 
 ## 偏差
 
-- 宽屏下 bar 窗口仍是半屏宽的中央条带，胶囊正上方的菜单栏空白区仍会吃掉点击；彻底消除需要动态 margin 或改 SketchyBar。
+- 胶囊自身那一小块区域（约 300×22pt，位于菜单栏中部）仍然吃掉点击，因为 SketchyBar 的窗口无法忽略鼠标事件；该区域下方通常是空的菜单栏，没有控件。
 - `space_created` 对 `yabai -m space --create` 不触发（实测 action 未执行）：CLI 建空间后要等下一个事件或 `make reload`；UI 建空间由 `mission_control_exit` 兜住。
 - `~/.yabairc` 注入是唯一一处改用户配置的写操作；用户若把 yabai 配置放在别处，重启 yabai 后 signal 不会重注册（`make doctor` 能查出）。
 - 关键不变量（摆放几何、item 结构、左右内边距对称、渲染不闪、非法颜色回落）由 `make verify` 守住；其余靠 `make doctor` 的只读体检。
